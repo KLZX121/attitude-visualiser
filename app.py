@@ -24,8 +24,8 @@ SETTINGS = SimpleNamespace()
 SETTINGS.FILEPATH = 'qdata.txt'
 SETTINGS.WINDOW_SIZE = (800, 600)
 SETTINGS.AUTOPLAY = False
-SETTINGS.LOOP_PLAYBACK = False
-SETTINGS.PLAYBACK_SPEED = 1
+SETTINGS.LOOP_PLAYBACK = True
+SETTINGS.PLAYBACK_SPEED = 5
 SETTINGS.TIMER_INT = 17
 
 
@@ -38,7 +38,7 @@ class MainWindow(QMainWindow):
   def __init__(self):
     super().__init__()
 
-    self.setWindowTitle("PyVista App")
+    self.setWindowTitle('Attitude Visualiser v0.1')
     self.resize(SETTINGS.WINDOW_SIZE[0], SETTINGS.WINDOW_SIZE[1])
 
     # read data
@@ -86,8 +86,13 @@ class MainWindow(QMainWindow):
     # play pause button
     def toggle_play(is_checked):
       SETTINGS.AUTOPLAY = is_checked
+
+      if is_checked:
+        self.play_button.setText('Pause')
+      else:
+        self.play_button.setText('Play')
     
-    self.play_button = QPushButton("Play")
+    self.play_button = QPushButton('Pause' if SETTINGS.AUTOPLAY else 'Play')
     self.play_button.setCheckable(True)
     self.play_button.setChecked(SETTINGS.AUTOPLAY)
     self.play_button.toggled.connect(toggle_play)
