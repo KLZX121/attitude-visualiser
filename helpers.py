@@ -1,5 +1,8 @@
 import pyvista as pv
 import numpy as np
+import json
+
+from types import SimpleNamespace
 
 def read_attitude_data(filepath) -> np.ndarray:
   # formatted as a n x 4 csv
@@ -31,6 +34,28 @@ def read_attitude_data(filepath) -> np.ndarray:
     dcm_list.append(dcm)
 
   return dcm_list
+
+def read_geometry_data(filepath, return_type=None):
+  try:
+    with open(filepath, 'r') as f:
+      data = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+
+      if return_type == 'v':
+      # return a list of vertices
+        vertices = []
+
+        for surf in data.surfaces:
+          vertices.extend(surf.vertices)
+
+        vertices = np.array(vertices)
+        return vertices
+      else:
+      # return json object (SimpleNamespace)
+        return data
+  except FileNotFoundError:
+    print(f'The file \'{filepath}\' could not be found. Make sure your file is named and placed correctly.')
+    return None
+
 
 class Frame:
   def __init__(self, frame_name, cols=('red', 'green', 'blue'), labels=('x', 'y', 'z'), opacity=1):

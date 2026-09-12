@@ -21,7 +21,8 @@ from qtpy.QtWidgets import (
 
 SETTINGS = SimpleNamespace()
 
-SETTINGS.FILEPATH = 'qdata.txt'
+SETTINGS.FILEPATH_ATTITUDE = 'qdata.txt'
+SETTINGS.FILEPATH_GEOMETRY = 'geometry.json'
 SETTINGS.WINDOW_SIZE = (800, 600)
 SETTINGS.AUTOPLAY = False
 SETTINGS.LOOP_PLAYBACK = True
@@ -42,7 +43,7 @@ class MainWindow(QMainWindow):
     self.resize(SETTINGS.WINDOW_SIZE[0], SETTINGS.WINDOW_SIZE[1])
 
     # read data
-    self.dcm_list = read_attitude_data(SETTINGS.FILEPATH)
+    self.dcm_list = read_attitude_data(SETTINGS.FILEPATH_ATTITUDE)
     self.N_FRAMES = len(self.dcm_list)
 
     # create central widget and layout
@@ -107,7 +108,7 @@ class MainWindow(QMainWindow):
     self.frame_slider.setRange(1, self.N_FRAMES)
     self.frame_slider.valueChanged.connect(set_frame)
 
-    # autoplay funcionality
+    # autoplay functionality
     def timer_callback():
       if not SETTINGS.AUTOPLAY:
         return
@@ -126,9 +127,26 @@ class MainWindow(QMainWindow):
     self.timer.timeout.connect(timer_callback)
     self.timer.start(SETTINGS.TIMER_INT)
 
+    # render satellite body
+    def toggle_satellite(is_checked):
+      if is_checked:
+        vertices = read_geometry_data(SETTINGS.FILEPATH_GEOMETRY, 'v')
+        if not vertices.all():
+          return
+        
+        v = pv.PolyData(vertices)
+
+        v.plot()
+
+    self.show_body_btn = QPushButton('Show Satellite')
+    self.show_body_btn.setCheckable(True)
+    self.show_body_btn.toggled.connect(toggle_satellite)
+
+    # controls ui layout
     controls_layout = QGridLayout()
     controls_layout.addWidget(self.play_button, 1, 0)
     controls_layout.addWidget(self.frame_slider, 1, 1)
+    controls_layout.addWidget(self.show_body_btn, 2, 0)
 
     return controls_layout
 

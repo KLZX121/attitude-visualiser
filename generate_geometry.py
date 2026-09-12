@@ -90,6 +90,7 @@ def write_json(surfaces, normals, names):
     surface_objs.append(surf_obj)
 
   data = {
+    'n_surfaces': len(surface_objs),
     'surfaces': surface_objs
   }
 
