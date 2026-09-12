@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
     self.resize(SETTINGS.WINDOW_SIZE[0], SETTINGS.WINDOW_SIZE[1])
 
     # read data
-    self.dcm_list = self.read_attitude_data(SETTINGS.FILEPATH)
+    self.dcm_list = read_attitude_data(SETTINGS.FILEPATH)
     self.N_FRAMES = len(self.dcm_list)
 
     # create central widget and layout
@@ -131,37 +131,6 @@ class MainWindow(QMainWindow):
     controls_layout.addWidget(self.frame_slider, 1, 1)
 
     return controls_layout
-
-  def read_attitude_data(self, filepath) -> np.ndarray:
-    # formatted as a n x 4 csv
-    q_list = np.loadtxt(filepath, delimiter=',')
-  
-    # compute dcms
-    dcm_list = []
-
-    def q_to_dcm(q):
-      # convert to dcm
-      qs = q[0]
-      qv = q[1:]
-
-      def skew(v):
-        return np.array([
-          [0, -v[2], v[1]],
-          [v[2], 0, -v[0]],
-          [-v[1], v[0], 0]
-        ])
-
-      dcm = (qs**2 - np.linalg.norm(qv)**2)*np.eye(3) - 2*qs*skew(qv) + 2*np.outer(qv, qv)
-      return dcm
-    
-    for q in q_list:
-      # input quaternion (scalar first, shuster/JPL convention)
-      q = q / np.linalg.norm(q)
-  
-      dcm = q_to_dcm(q)
-      dcm_list.append(dcm)
-
-    return dcm_list
 
 
 def main():
