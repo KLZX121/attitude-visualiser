@@ -75,3 +75,50 @@ class Frame:
     # rotate using transpose of attitude (body -> ref)
     for i in range(3):
       self.arrow_actor[i].rotation_from(A.T)
+
+class Body:
+  def __init__(self, geometry):
+    self.geometry = geometry
+
+    self.actors = []
+
+  def setup(self, plotter, show_centroids, show_normals):
+    for surface_obj in self.geometry.surfaces:
+      # convert vertex data to PolyData
+      vertices = pv.PolyData(surface_obj.vertices)
+      # use delaunay triangulation to create surface mesh from vertices
+      surface_mesh = vertices.delaunay_2d()
+
+      mesh_col = None
+      if 'panel' in surface_obj.name or 'x_pos' in surface_obj.name:
+        mesh_col = 'yellow'
+      
+      surf_actor = plotter.add_mesh(surface_mesh, color=mesh_col)
+      self.actors.append(surf_actor)
+
+      if show_centroids:
+        centroid_mesh = pv.Sphere(radius=0.003, center=surface_obj.centroid)
+        cent_actor =  plotter.add_mesh(centroid_mesh, color='white')
+        self.actors.append(cent_actor)
+
+
+      if show_normals:
+        normal_mesh = pv.Arrow(start=surface_obj.centroid, direction=surface_obj.normal, scale=0.03)
+        arrow_col = None
+        if '_x_'in surface_obj.name:
+          arrow_col = 'red'
+        elif '_y_' in surface_obj.name:
+          arrow_col = 'green'
+        elif '_z_' in surface_obj.name:
+          arrow_col = 'blue'
+        
+        norm_actor = plotter.add_mesh(normal_mesh, color=arrow_col)
+        self.actors.append(norm_actor)
+
+    # scale actors
+    for actor in self.actors:
+      actor.scale = (5, 5, 5)
+
+  def toggle_visibility(self):
+    for actor in self.actors:
+      actor.visibility = not actor.visibility

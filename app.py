@@ -56,7 +56,7 @@ class MainWindow(QMainWindow):
     self.setCentralWidget(central_widget)
 
     # setup PyVista viewport widget
-    self.plotter, self.ref_frame, self.body_frame = self.setup_plotter(central_widget)
+    self.setup_plotter(central_widget)
     central_layout.addWidget(self.plotter.interactor, 5)
 
     # setup controls widget
@@ -67,25 +67,23 @@ class MainWindow(QMainWindow):
     self.plotter.close()
     event.accept()
 
-  def setup_plotter(self, central_widget) -> tuple[QtInteractor, Frame, Frame]:
+  def setup_plotter(self, central_widget):
     # create plotter
-    pl = QtInteractor(central_widget)
+    self.plotter = QtInteractor(central_widget)
 
     # base ref frame
-    base_frame = Frame(frame_name='ref', opacity=0.3)
-    base_frame.setup(np.eye(3), pl)
+    self.base_frame = Frame(frame_name='ref', opacity=0.3)
+    self.base_frame.setup(np.eye(3), self.plotter)
 
     # base body frame
-    body_frame = Frame(frame_name='body')
-    body_frame.setup(np.eye(3), pl)
+    self.body_frame = Frame(frame_name='body')
+    self.body_frame.setup(np.eye(3), self.plotter)
 
     # plot centre
-    pl.add_mesh(pv.Sphere(radius=0.05), color='grey')
+    self.plotter.add_mesh(pv.Sphere(radius=0.05), color='grey')
 
     #pl.background_color = 'black'
-    pl.add_axes(viewport=(0, 0.8, 0.2, 1))
-
-    return pl, base_frame, body_frame
+    self.plotter.add_axes(viewport=(0, 0.8, 0.2, 1))
 
   def setup_controls(self) -> QGridLayout:
     # play pause button
@@ -133,43 +131,24 @@ class MainWindow(QMainWindow):
 
     # render satellite body
     def toggle_satellite(is_checked):
-      if is_checked:
-        geometry = read_geometry_data(SETTINGS.FILEPATH_GEOMETRY)
-        if not geometry:
+      self.show_body_btn.setText('Hide Satellite' if is_checked else 'Show Satellite')
+
+      if not hasattr(self, 'geometry_data'):
+        # initialise body mesh
+        geometry_data = read_geometry_data(SETTINGS.FILEPATH_GEOMETRY)
+        if not geometry_data:
+          self.show_body_btn.setChecked(False)
+          self.show_body_btn.setText('Show Satellite')
           return
 
-        pl = pv.Plotter()
-        
-        for surface_obj in geometry.surfaces:
-          # convert vertex data to PolyData
-          vertices = pv.PolyData(surface_obj.vertices)
-          # use delaunay triangulation to create surface mesh from vertices
-          surface_mesh = vertices.delaunay_2d()
+        self.geometry_data = geometry_data
+        self.body_mesh = Body(self.geometry_data)
+        self.body_mesh.setup(self.plotter, SETTINGS.SHOW_CENTROIDS, SETTINGS.SHOW_NORMALS)
 
-          mesh_col = None
-          if 'panel' in surface_obj.name or 'x_pos' in surface_obj.name:
-            mesh_col = 'yellow'
-          
-          pl.add_mesh(surface_mesh, color=mesh_col)
-
-          if SETTINGS.SHOW_CENTROIDS:
-            centroid_mesh = pv.Sphere(radius=0.003, center=surface_obj.centroid)
-            pl.add_mesh(centroid_mesh, color='white')
-
-          if SETTINGS.SHOW_NORMALS:
-            normal_mesh = pv.Arrow(start=surface_obj.centroid, direction=surface_obj.normal, scale=0.03)
-            arrow_col = None
-            if '_x_'in surface_obj.name:
-              arrow_col = 'red'
-            elif '_y_' in surface_obj.name:
-              arrow_col = 'green'
-            elif '_z_' in surface_obj.name:
-              arrow_col = 'blue'
-            
-            pl.add_mesh(normal_mesh, color=arrow_col)
-
-        pl.add_axes()
-        pl.show()
+      else:
+        # toggle visibility of body mesh
+        self.body_mesh.toggle_visibility()
+        self.plotter.update()
 
 
     self.show_body_btn = QPushButton('Show Satellite')
