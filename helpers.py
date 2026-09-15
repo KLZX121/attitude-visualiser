@@ -57,7 +57,7 @@ def read_geometry_data(filepath, return_type=None) -> np.ndarray | SimpleNamespa
     return None
 
 
-class Frame:
+class Axes:
   def __init__(self, frame_name, cols=('red', 'green', 'blue'), labels=('x', 'y', 'z'), opacity=1):
     self.frame_name = frame_name
     self.cols = cols
@@ -75,6 +75,10 @@ class Frame:
     # rotate using transpose of attitude (body -> ref)
     for i in range(3):
       self.arrow_actor[i].rotation_from(A.T)
+
+  def toggle_visibility(self):
+    for actor in self.arrow_actor:
+      actor.visibility = not actor.visibility
 
 class Body:
   def __init__(self, geometry):

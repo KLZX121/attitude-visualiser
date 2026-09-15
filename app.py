@@ -13,6 +13,7 @@ from qtpy.QtWidgets import (
   QSlider,
   QGridLayout,
   QVBoxLayout,
+  QHBoxLayout,
   QWidget,
 )
 
@@ -73,12 +74,12 @@ class MainWindow(QMainWindow):
     self.plotter = QtInteractor(central_widget)
 
     # base ref frame
-    self.base_frame = Frame(frame_name='ref', opacity=0.3)
-    self.base_frame.setup(np.eye(3), self.plotter)
+    self.ref_axes = Axes(frame_name='ref', opacity=0.3)
+    self.ref_axes.setup(np.eye(3), self.plotter)
 
     # base body frame
-    self.body_frame = Frame(frame_name='body')
-    self.body_frame.setup(np.eye(3), self.plotter)
+    self.body_axes = Axes(frame_name='body')
+    self.body_axes.setup(np.eye(3), self.plotter)
 
     # plot centre
     self.plotter.add_mesh(pv.Sphere(radius=0.05), color='grey')
@@ -96,16 +97,14 @@ class MainWindow(QMainWindow):
       else:
         self.play_button.setText('Play')
     
-    self.play_button = QPushButton('Pause' if SETTINGS.autoplay else 'Play')
-    self.play_button.setCheckable(True)
-    self.play_button.setChecked(SETTINGS.autoplay)
+    self.play_button = QPushButton('Pause' if SETTINGS.autoplay else 'Play', checkable=True, checked=SETTINGS.autoplay)
     self.play_button.toggled.connect(toggle_play)
 
     # playback slider
     def set_frame(frame):
       dcm = self.dcm_list[frame-1]
       if SETTINGS.show_body_axes:
-        self.body_frame.rotate_mesh(dcm)
+        self.body_axes.rotate_mesh(dcm)
 
       if SETTINGS.show_body_mesh and hasattr(self, 'body_mesh'):
         self.body_mesh.rotate_mesh(dcm)
@@ -136,18 +135,37 @@ class MainWindow(QMainWindow):
     self.timer.timeout.connect(timer_callback)
     self.timer.start(SETTINGS.TIMER_INT)
 
-    # render satellite body
-    def toggle_satellite(is_checked):
-      self.show_body_btn.setText('Hide Satellite' if is_checked else 'Show Satellite')
+    # body axes toggle
+    def toggle_baxes(is_checked):
+      SETTINGS.show_body_axes = is_checked
+      self.baxes_btn.setText('Hide Body Axes' if SETTINGS.show_body_axes else 'Show Body Axes')
+
+      self.body_axes.toggle_visibility()
+      if SETTINGS.show_body_axes: 
+        self.body_axes.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
+
+      self.plotter.render()
+
+    self.baxes_btn = QPushButton(
+      'Hide Body Axes' if SETTINGS.show_body_axes else 'Show Body Axes',
+      checkable=True,
+      checked=SETTINGS.show_body_axes
+    )
+    self.baxes_btn.toggled.connect(toggle_baxes)
+
+
+    # satellite body toggle
+    def toggle_body_mesh(is_checked):
+      self.body_mesh_btn.setText('Hide Satellite' if is_checked else 'Show Satellite')
 
       if not hasattr(self, 'geometry_data'):
         # initialise body mesh
         geometry_data = read_geometry_data(SETTINGS.FILEPATH_GEOMETRY)
         if not geometry_data:
-          with QSignalBlocker(self.show_body_btn):
-            self.show_body_btn.setChecked(False)
+          with QSignalBlocker(self.body_mesh_btn):
+            self.body_mesh_btn.setChecked(False)
 
-          self.show_body_btn.setText('Show Satellite')
+          self.body_mesh_btn.setText('Show Satellite')
           return
 
         SETTINGS.show_body_mesh = True
@@ -164,18 +182,27 @@ class MainWindow(QMainWindow):
         if SETTINGS.show_body_mesh: 
           self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
 
-        self.plotter.update()
+        self.plotter.render()
 
-    self.show_body_btn = QPushButton('Show Satellite')
-    self.show_body_btn.setCheckable(True)
-    self.show_body_btn.toggled.connect(toggle_satellite)
-    self.show_body_btn.setChecked(SETTINGS.show_body_mesh)
+    self.body_mesh_btn = QPushButton(
+      'Hide Satellite' if SETTINGS.show_body_mesh else 'Show Satellite',
+      checkable=True
+    )
+    self.body_mesh_btn.toggled.connect(toggle_body_mesh)
+    self.body_mesh_btn.setChecked(SETTINGS.show_body_mesh)
 
     # controls ui layout
-    controls_layout = QGridLayout()
-    controls_layout.addWidget(self.play_button, 1, 0)
-    controls_layout.addWidget(self.frame_slider, 1, 1)
-    controls_layout.addWidget(self.show_body_btn, 2, 0)
+    playback_layout = QHBoxLayout()
+    playback_layout.addWidget(self.play_button)
+    playback_layout.addWidget(self.frame_slider)
+
+    toggle_layout = QHBoxLayout()
+    toggle_layout.addWidget(self.baxes_btn)
+    toggle_layout.addWidget(self.body_mesh_btn)
+
+    controls_layout = QVBoxLayout()
+    controls_layout.addLayout(playback_layout)
+    controls_layout.addLayout(toggle_layout)
 
     return controls_layout
 
