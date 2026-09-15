@@ -103,7 +103,13 @@ class MainWindow(QMainWindow):
 
     # playback slider
     def set_frame(frame):
-      self.body_frame.rotate_mesh(self.dcm_list[frame-1])
+      dcm = self.dcm_list[frame-1]
+      if SETTINGS.show_body_axes:
+        self.body_frame.rotate_mesh(dcm)
+
+      if SETTINGS.show_body_mesh and hasattr(self, 'body_mesh'):
+        self.body_mesh.rotate_mesh(dcm)
+
       self.plotter.render()
     
     set_frame(1)
@@ -148,11 +154,16 @@ class MainWindow(QMainWindow):
         self.geometry_data = geometry_data
         self.body_mesh = Body(self.geometry_data)
         self.body_mesh.setup(self.plotter, SETTINGS.show_centroids, SETTINGS.show_normals)
+        self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
 
       else:
         # toggle visibility of body mesh
         SETTINGS.show_body_mesh = is_checked
         self.body_mesh.toggle_visibility()
+
+        if SETTINGS.show_body_mesh: 
+          self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
+
         self.plotter.update()
 
     self.show_body_btn = QPushButton('Show Satellite')

@@ -122,3 +122,7 @@ class Body:
   def toggle_visibility(self):
     for actor in self.actors:
       actor.visibility = not actor.visibility
+
+  def rotate_mesh(self, dcm):
+    for actor in self.actors:
+      actor.rotation_from(dcm.T)
