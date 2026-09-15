@@ -24,10 +24,14 @@ SETTINGS = SimpleNamespace()
 SETTINGS.FILEPATH_ATTITUDE = 'qdata.txt'
 SETTINGS.FILEPATH_GEOMETRY = 'geometry.json'
 SETTINGS.WINDOW_SIZE = (800, 600)
+
 SETTINGS.AUTOPLAY = False
 SETTINGS.LOOP_PLAYBACK = True
 SETTINGS.PLAYBACK_SPEED = 5
 SETTINGS.TIMER_INT = 17
+
+SETTINGS.SHOW_CENTROIDS = True
+SETTINGS.SHOW_NORMALS = True
 
 
 #TODO: add export option (and settings)
@@ -130,13 +134,43 @@ class MainWindow(QMainWindow):
     # render satellite body
     def toggle_satellite(is_checked):
       if is_checked:
-        vertices = read_geometry_data(SETTINGS.FILEPATH_GEOMETRY, 'v')
-        if not vertices.all():
+        geometry = read_geometry_data(SETTINGS.FILEPATH_GEOMETRY)
+        if not geometry:
           return
-        
-        v = pv.PolyData(vertices)
 
-        v.plot()
+        pl = pv.Plotter()
+        
+        for surface_obj in geometry.surfaces:
+          # convert vertex data to PolyData
+          vertices = pv.PolyData(surface_obj.vertices)
+          # use delaunay triangulation to create surface mesh from vertices
+          surface_mesh = vertices.delaunay_2d()
+
+          mesh_col = None
+          if 'panel' in surface_obj.name or 'x_pos' in surface_obj.name:
+            mesh_col = 'yellow'
+          
+          pl.add_mesh(surface_mesh, color=mesh_col)
+
+          if SETTINGS.SHOW_CENTROIDS:
+            centroid_mesh = pv.Sphere(radius=0.003, center=surface_obj.centroid)
+            pl.add_mesh(centroid_mesh, color='white')
+
+          if SETTINGS.SHOW_NORMALS:
+            normal_mesh = pv.Arrow(start=surface_obj.centroid, direction=surface_obj.normal, scale=0.03)
+            arrow_col = None
+            if '_x_'in surface_obj.name:
+              arrow_col = 'red'
+            elif '_y_' in surface_obj.name:
+              arrow_col = 'green'
+            elif '_z_' in surface_obj.name:
+              arrow_col = 'blue'
+            
+            pl.add_mesh(normal_mesh, color=arrow_col)
+
+        pl.add_axes()
+        pl.show()
+
 
     self.show_body_btn = QPushButton('Show Satellite')
     self.show_body_btn.setCheckable(True)

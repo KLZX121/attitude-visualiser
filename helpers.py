@@ -35,7 +35,7 @@ def read_attitude_data(filepath) -> np.ndarray:
 
   return dcm_list
 
-def read_geometry_data(filepath, return_type=None):
+def read_geometry_data(filepath, return_type=None) -> np.ndarray | SimpleNamespace | None:
   try:
     with open(filepath, 'r') as f:
       data = json.load(f, object_hook=lambda d: SimpleNamespace(**d))

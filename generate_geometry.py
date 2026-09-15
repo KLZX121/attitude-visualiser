@@ -114,7 +114,7 @@ def write_json(surfaces, normals, areas, centroids, names):
   }
 
   with open('geometry.json', 'w') as f:
-    json.dump(data, f)
+    json.dump(data, f, indent=2)
 
 surfaces, normals = gen_cubesat()
 areas = calc_areas(surfaces)
