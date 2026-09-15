@@ -84,9 +84,10 @@ class Body:
   def __init__(self, geometry):
     self.geometry = geometry
 
-    self.actors = []
+    self.surf_actors = []
+    self.norm_actors = []
 
-  def setup(self, plotter, show_centroids, show_normals):
+  def setup(self, plotter, show_normals):
     for surface_obj in self.geometry.surfaces:
       # convert vertex data to PolyData
       vertices = pv.PolyData(surface_obj.vertices)
@@ -98,15 +99,15 @@ class Body:
         mesh_col = 'yellow'
       
       surf_actor = plotter.add_mesh(surface_mesh, color=mesh_col)
-      self.actors.append(surf_actor)
-
-      if show_centroids:
-        centroid_mesh = pv.Sphere(radius=0.003, center=surface_obj.centroid)
-        cent_actor =  plotter.add_mesh(centroid_mesh, color='white')
-        self.actors.append(cent_actor)
-
+      self.surf_actors.append(surf_actor)
 
       if show_normals:
+        """
+        centroid_mesh = pv.Sphere(radius=0.003, center=surface_obj.centroid)
+        cent_actor =  plotter.add_mesh(centroid_mesh, color='white')
+        self.norm_actors.append(cent_actor)
+        """
+
         normal_mesh = pv.Arrow(start=surface_obj.centroid, direction=surface_obj.normal, scale=0.03)
         arrow_col = None
         if '_x_'in surface_obj.name:
@@ -117,16 +118,22 @@ class Body:
           arrow_col = 'blue'
         
         norm_actor = plotter.add_mesh(normal_mesh, color=arrow_col)
-        self.actors.append(norm_actor)
+        self.norm_actors.append(norm_actor)
 
     # scale actors
-    for actor in self.actors:
+    for actor in self.surf_actors + self.norm_actors:
       actor.scale = (5, 5, 5)
 
-  def toggle_visibility(self):
-    for actor in self.actors:
-      actor.visibility = not actor.visibility
+  def toggle_visibility(self, show_surf, show_norms):
+    for actor in self.surf_actors:
+      actor.visibility = show_surf
+    for actor in self.norm_actors:
+      if not show_surf:
+        actor.visibility = False
+      else:
+        actor.visibility = show_norms
+
 
   def rotate_mesh(self, dcm):
-    for actor in self.actors:
+    for actor in self.surf_actors + self.norm_actors:
       actor.rotation_from(dcm.T)

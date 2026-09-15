@@ -28,12 +28,10 @@ class SETTINGS:
   PLAYBACK_SPEED: int = 5
   TIMER_INT: int = 17
 
-  show_centroids: bool = True
-  show_normals: bool = True
-
   show_ref_axes: bool = True
   show_body_axes: bool = True
-  show_body_mesh: bool = True
+  show_body_mesh: bool = False
+  show_normals: bool = True
 
 
 #TODO: add export option (and settings)
@@ -104,6 +102,7 @@ class MainWindow(QMainWindow):
     self.play_button = QPushButton('Pause' if SETTINGS.autoplay else 'Play', checkable=True, checked=SETTINGS.autoplay)
     self.play_button.toggled.connect(toggle_play)
 
+
     # playback slider
     def set_frame(frame):
       dcm = self.dcm_list[frame-1]
@@ -119,6 +118,7 @@ class MainWindow(QMainWindow):
     self.frame_slider = QSlider(Qt.Orientation.Horizontal)
     self.frame_slider.setRange(1, self.N_FRAMES)
     self.frame_slider.valueChanged.connect(set_frame)
+
 
     # autoplay functionality
     def timer_callback():
@@ -139,6 +139,7 @@ class MainWindow(QMainWindow):
     self.timer.timeout.connect(timer_callback)
     self.timer.start(SETTINGS.TIMER_INT)
 
+
     # ref axes toggle
     def toggle_raxes(is_checked):
       SETTINGS.show_ref_axes = is_checked
@@ -154,6 +155,7 @@ class MainWindow(QMainWindow):
       checked=SETTINGS.show_ref_axes
     )
     self.raxes_btn.toggled.connect(toggle_raxes)
+
 
     # body axes toggle
     def toggle_baxes(is_checked):
@@ -191,18 +193,23 @@ class MainWindow(QMainWindow):
         SETTINGS.show_body_mesh = True
         self.geometry_data = geometry_data
         self.body_mesh = Body(self.geometry_data)
-        self.body_mesh.setup(self.plotter, SETTINGS.show_centroids, SETTINGS.show_normals)
+        self.body_mesh.setup(self.plotter, SETTINGS.show_normals)
         self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
+
+        self.norm_btn.setEnabled(True)
 
       else:
         # toggle visibility of body mesh
         SETTINGS.show_body_mesh = is_checked
-        self.body_mesh.toggle_visibility()
+        self.body_mesh.toggle_visibility(SETTINGS.show_body_mesh, SETTINGS.show_normals)
 
         if SETTINGS.show_body_mesh: 
           self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
+          self.norm_btn.setEnabled(True)
+        else:
+          self.norm_btn.setEnabled(False)
 
-        self.plotter.render()
+      self.plotter.render()
 
     self.body_mesh_btn = QPushButton(
       'Hide Satellite' if SETTINGS.show_body_mesh else 'Show Satellite',
@@ -210,6 +217,24 @@ class MainWindow(QMainWindow):
     )
     self.body_mesh_btn.toggled.connect(toggle_body_mesh)
     self.body_mesh_btn.setChecked(SETTINGS.show_body_mesh)
+
+    # satellite normals toggle
+    def toggle_norms(is_checked):
+      SETTINGS.show_normals = is_checked
+      self.norm_btn.setText('Hide Norms' if SETTINGS.show_normals else 'Show Norms')
+
+      if hasattr(self, 'body_mesh'):
+        self.body_mesh.toggle_visibility(SETTINGS.show_body_mesh, SETTINGS.show_normals)
+
+      self.plotter.render()
+
+    self.norm_btn = QPushButton(
+      'Hide Norms' if SETTINGS.show_normals else 'Show Norms',
+      checkable=True,
+      enabled=SETTINGS.show_body_mesh
+    )
+    self.norm_btn.toggled.connect(toggle_norms)
+    self.norm_btn.setChecked(SETTINGS.show_normals)
 
     # controls ui layout
     playback_layout = QHBoxLayout()
@@ -219,7 +244,12 @@ class MainWindow(QMainWindow):
     toggle_layout = QHBoxLayout()
     toggle_layout.addWidget(self.raxes_btn)
     toggle_layout.addWidget(self.baxes_btn)
-    toggle_layout.addWidget(self.body_mesh_btn)
+
+    satellite_layout = QVBoxLayout()
+    satellite_layout.addWidget(self.body_mesh_btn)
+    satellite_layout.addWidget(self.norm_btn)
+
+    toggle_layout.addLayout(satellite_layout)
 
     controls_layout = QVBoxLayout()
     controls_layout.addLayout(playback_layout)
