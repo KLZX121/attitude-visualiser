@@ -31,8 +31,8 @@ class SETTINGS:
   show_centroids: bool = True
   show_normals: bool = True
 
-  show_body_axes: bool = True
   show_ref_axes: bool = True
+  show_body_axes: bool = True
   show_body_mesh: bool = True
 
 
@@ -76,10 +76,14 @@ class MainWindow(QMainWindow):
     # base ref frame
     self.ref_axes = Axes(frame_name='ref', opacity=0.3)
     self.ref_axes.setup(np.eye(3), self.plotter)
+    if not SETTINGS.show_ref_axes:
+      self.ref_axes.toggle_visibility()
 
     # base body frame
     self.body_axes = Axes(frame_name='body')
     self.body_axes.setup(np.eye(3), self.plotter)
+    if not SETTINGS.show_body_axes:
+      self.body_axes.toggle_visibility()
 
     # plot centre
     self.plotter.add_mesh(pv.Sphere(radius=0.05), color='grey')
@@ -134,6 +138,22 @@ class MainWindow(QMainWindow):
     self.timer = QTimer(self)
     self.timer.timeout.connect(timer_callback)
     self.timer.start(SETTINGS.TIMER_INT)
+
+    # ref axes toggle
+    def toggle_raxes(is_checked):
+      SETTINGS.show_ref_axes = is_checked
+      self.raxes_btn.setText('Hide Ref Axes' if SETTINGS.show_ref_axes else 'Show Ref Axes')
+
+      self.ref_axes.toggle_visibility()
+
+      self.plotter.render()
+
+    self.raxes_btn = QPushButton(
+      'Hide Ref Axes' if SETTINGS.show_ref_axes else 'Show Ref Axes',
+      checkable=True,
+      checked=SETTINGS.show_ref_axes
+    )
+    self.raxes_btn.toggled.connect(toggle_raxes)
 
     # body axes toggle
     def toggle_baxes(is_checked):
@@ -197,6 +217,7 @@ class MainWindow(QMainWindow):
     playback_layout.addWidget(self.frame_slider)
 
     toggle_layout = QHBoxLayout()
+    toggle_layout.addWidget(self.raxes_btn)
     toggle_layout.addWidget(self.baxes_btn)
     toggle_layout.addWidget(self.body_mesh_btn)
 
