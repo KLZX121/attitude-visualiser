@@ -57,11 +57,13 @@ class MainWindow(QMainWindow):
 
     # setup PyVista viewport widget
     self.setup_plotter(central_widget)
-    central_layout.addWidget(self.plotter.interactor, 5)
-
+    
     # setup controls widget
-    controls_layout = self.setup_controls()
-    central_layout.addLayout(controls_layout, 1)
+    toggles_layout, playback_layout = self.setup_controls()
+
+    central_layout.addLayout(toggles_layout)
+    central_layout.addWidget(self.plotter.interactor, 1)
+    central_layout.addLayout(playback_layout)
 
   def closeEvent(self, event):
     self.plotter.close()
@@ -89,7 +91,7 @@ class MainWindow(QMainWindow):
     #pl.background_color = 'black'
     self.plotter.add_axes(viewport=(0, 0.8, 0.2, 1))
 
-  def setup_controls(self) -> QGridLayout:
+  def setup_controls(self) -> tuple[QHBoxLayout, QHBoxLayout]:
     # play pause button
     def toggle_play(is_checked):
       SETTINGS.autoplay = is_checked
@@ -236,6 +238,7 @@ class MainWindow(QMainWindow):
     self.norm_btn.toggled.connect(toggle_norms)
     self.norm_btn.setChecked(SETTINGS.show_normals)
 
+
     # controls ui layout
     playback_layout = QHBoxLayout()
     playback_layout.addWidget(self.play_button)
@@ -245,17 +248,10 @@ class MainWindow(QMainWindow):
     toggle_layout.addWidget(self.raxes_btn)
     toggle_layout.addWidget(self.baxes_btn)
 
-    satellite_layout = QVBoxLayout()
-    satellite_layout.addWidget(self.body_mesh_btn)
-    satellite_layout.addWidget(self.norm_btn)
+    toggle_layout.addWidget(self.body_mesh_btn)
+    toggle_layout.addWidget(self.norm_btn)
 
-    toggle_layout.addLayout(satellite_layout)
-
-    controls_layout = QVBoxLayout()
-    controls_layout.addLayout(playback_layout)
-    controls_layout.addLayout(toggle_layout)
-
-    return controls_layout
+    return toggle_layout, playback_layout
 
 
 def main():
