@@ -11,7 +11,7 @@ from qtpy.QtWidgets import (
   QMainWindow,
   QPushButton,
   QSlider,
-  QGridLayout,
+  QLabel,
   QVBoxLayout,
   QHBoxLayout,
   QWidget,
@@ -27,6 +27,8 @@ class SETTINGS:
   LOOP_PLAYBACK: bool = True
   PLAYBACK_SPEED: int = 5
   TIMER_INT: int = 17
+
+  SIMULATION_TIMESTEP: int = 1
 
   show_ref_axes: bool = True
   show_body_axes: bool = True
@@ -55,21 +57,22 @@ class MainWindow(QMainWindow):
     central_layout = QVBoxLayout(central_widget)
     self.setCentralWidget(central_widget)
 
-    # setup PyVista viewport widget
-    self.setup_plotter(central_widget)
+    # setup PyVista viewport
+    plotter_widget = self.setup_plotter(central_widget)
     
-    # setup controls widget
+    # setup control buttons and settings
     toggles_layout, playback_layout = self.setup_controls()
 
+    # add everything to central layout
     central_layout.addLayout(toggles_layout)
-    central_layout.addWidget(self.plotter.interactor, 1)
+    central_layout.addWidget(plotter_widget, 1)
     central_layout.addLayout(playback_layout)
 
   def closeEvent(self, event):
     self.plotter.close()
     event.accept()
 
-  def setup_plotter(self, central_widget):
+  def setup_plotter(self, central_widget) -> QWidget:
     # create plotter
     self.plotter = QtInteractor(central_widget)
 
@@ -89,7 +92,19 @@ class MainWindow(QMainWindow):
     self.plotter.add_mesh(pv.Sphere(radius=0.05), color='grey')
 
     #pl.background_color = 'black'
-    self.plotter.add_axes(viewport=(0, 0.8, 0.2, 1))
+    self.plotter.add_axes()
+
+    # create layout
+    plotter_widget = QWidget()
+    container = QVBoxLayout(plotter_widget)
+    container.addWidget(self.plotter.interactor)
+
+    self.label = QLabel('', plotter_widget)
+    self.label.setStyleSheet('color: black;')
+    self.label.move(20, 20)
+    self.raise_()
+
+    return plotter_widget
 
   def setup_controls(self) -> tuple[QHBoxLayout, QHBoxLayout]:
     # play pause button
@@ -107,6 +122,10 @@ class MainWindow(QMainWindow):
 
     # playback slider
     def set_frame(frame):
+      # simulation time
+      t = (frame-1)*SETTINGS.SIMULATION_TIMESTEP
+      self.label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
+
       dcm = self.dcm_list[frame-1]
       if SETTINGS.show_body_axes:
         self.body_axes.rotate_mesh(dcm)
@@ -252,7 +271,6 @@ class MainWindow(QMainWindow):
     toggle_layout.addWidget(self.norm_btn)
 
     return toggle_layout, playback_layout
-
 
 def main():
   app = QApplication(sys.argv)
