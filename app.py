@@ -1,11 +1,11 @@
 import sys
 import pyvista as pv
 import numpy as np
-from types import SimpleNamespace
+from dataclasses import dataclass
 from helpers import *
 
 from pyvistaqt import QtInteractor
-from qtpy.QtCore import Qt, QTimer
+from qtpy.QtCore import Qt, QTimer, QSignalBlocker
 from qtpy.QtWidgets import (
   QApplication,
   QMainWindow,
@@ -13,25 +13,26 @@ from qtpy.QtWidgets import (
   QSlider,
   QGridLayout,
   QVBoxLayout,
-  QHBoxLayout,
   QWidget,
-  QLabel
 )
 
+@dataclass
+class SETTINGS:
+  FILEPATH_ATTITUDE: str = 'qdata.txt'
+  FILEPATH_GEOMETRY: str = 'geometry.json'
+  WINDOW_SIZE: tuple[int, int] = (800, 600)
 
-SETTINGS = SimpleNamespace()
+  autoplay: bool = False
+  LOOP_PLAYBACK: bool = True
+  PLAYBACK_SPEED: int = 5
+  TIMER_INT: int = 17
 
-SETTINGS.FILEPATH_ATTITUDE = 'qdata.txt'
-SETTINGS.FILEPATH_GEOMETRY = 'geometry.json'
-SETTINGS.WINDOW_SIZE = (800, 600)
+  show_centroids: bool = True
+  show_normals: bool = True
 
-SETTINGS.AUTOPLAY = False
-SETTINGS.LOOP_PLAYBACK = True
-SETTINGS.PLAYBACK_SPEED = 5
-SETTINGS.TIMER_INT = 17
-
-SETTINGS.SHOW_CENTROIDS = True
-SETTINGS.SHOW_NORMALS = True
+  show_body_axes: bool = True
+  show_ref_axes: bool = True
+  show_body_mesh: bool = True
 
 
 #TODO: add export option (and settings)
@@ -88,16 +89,16 @@ class MainWindow(QMainWindow):
   def setup_controls(self) -> QGridLayout:
     # play pause button
     def toggle_play(is_checked):
-      SETTINGS.AUTOPLAY = is_checked
+      SETTINGS.autoplay = is_checked
 
       if is_checked:
         self.play_button.setText('Pause')
       else:
         self.play_button.setText('Play')
     
-    self.play_button = QPushButton('Pause' if SETTINGS.AUTOPLAY else 'Play')
+    self.play_button = QPushButton('Pause' if SETTINGS.autoplay else 'Play')
     self.play_button.setCheckable(True)
-    self.play_button.setChecked(SETTINGS.AUTOPLAY)
+    self.play_button.setChecked(SETTINGS.autoplay)
     self.play_button.toggled.connect(toggle_play)
 
     # playback slider
@@ -112,7 +113,7 @@ class MainWindow(QMainWindow):
 
     # autoplay functionality
     def timer_callback():
-      if not SETTINGS.AUTOPLAY:
+      if not SETTINGS.autoplay:
         return
       
       current_frame = self.frame_slider.value()
@@ -137,23 +138,27 @@ class MainWindow(QMainWindow):
         # initialise body mesh
         geometry_data = read_geometry_data(SETTINGS.FILEPATH_GEOMETRY)
         if not geometry_data:
-          self.show_body_btn.setChecked(False)
+          with QSignalBlocker(self.show_body_btn):
+            self.show_body_btn.setChecked(False)
+
           self.show_body_btn.setText('Show Satellite')
           return
 
+        SETTINGS.show_body_mesh = True
         self.geometry_data = geometry_data
         self.body_mesh = Body(self.geometry_data)
-        self.body_mesh.setup(self.plotter, SETTINGS.SHOW_CENTROIDS, SETTINGS.SHOW_NORMALS)
+        self.body_mesh.setup(self.plotter, SETTINGS.show_centroids, SETTINGS.show_normals)
 
       else:
         # toggle visibility of body mesh
+        SETTINGS.show_body_mesh = is_checked
         self.body_mesh.toggle_visibility()
         self.plotter.update()
-
 
     self.show_body_btn = QPushButton('Show Satellite')
     self.show_body_btn.setCheckable(True)
     self.show_body_btn.toggled.connect(toggle_satellite)
+    self.show_body_btn.setChecked(SETTINGS.show_body_mesh)
 
     # controls ui layout
     controls_layout = QGridLayout()
