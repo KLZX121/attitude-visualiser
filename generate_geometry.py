@@ -75,16 +75,35 @@ def gen_cubesat(Lx=0.1, Ly=0.1, Lz=0.3405, gen_solar_panels=True, solar_panel_he
 
   return surfaces, normals
 
+def calc_areas(surfaces):
+  areas = []
+  for surf in surfaces:
+    area = 0.5 * np.linalg.norm(np.cross(np.array(surf[2])-np.array(surf[0]), np.array(surf[3])-np.array(surf[1])))
+    areas.append(area.tolist())
+
+  return areas
+
+# only works for rectangular surfaces with four vertices
+def calc_centroids(surfaces):
+  centroids = []
+  for surf in surfaces:
+    centroid = np.sum(surf, axis=0) / 4
+    centroids.append(centroid.tolist())
+
+  return centroids
+
 
 # write data to json file
-def write_json(surfaces, normals, names):
+def write_json(surfaces, normals, areas, centroids, names):
   surface_objs = []
 
   for i, surf in enumerate(surfaces):
     surf_obj = {
       'name': names[i],
       'vertices': surf,
-      'normal': normals[i]
+      'normal': normals[i],
+      'area': areas[i],
+      'centroid': centroids[i]
     }
 
     surface_objs.append(surf_obj)
@@ -98,9 +117,13 @@ def write_json(surfaces, normals, names):
     json.dump(data, f)
 
 surfaces, normals = gen_cubesat()
+areas = calc_areas(surfaces)
+centroids = calc_centroids(surfaces)
 write_json(
-  surfaces, 
-  normals, 
+  surfaces,
+  normals,
+  areas,
+  centroids,
   [
     'body_z_pos', 
     'body_z_neg', 
