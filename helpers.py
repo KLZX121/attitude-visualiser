@@ -64,9 +64,9 @@ class Axes:
 
     self.arrow_actor = [None, None, None]
    
-  def setup(self, basis_vecs, plotter) -> None:
+  def setup(self, basis_vecs, scale, plotter) -> None:
     for i in range(3):
-      arrow = pv.Arrow(direction=basis_vecs[i], shaft_radius=0.04, tip_length=0.2)
+      arrow = pv.Arrow(direction=basis_vecs[i], shaft_radius=0.04, tip_length=0.2, scale=scale)
       self.arrow_actor[i] = plotter.add_mesh(arrow, color=self.cols[i], label=self.labels[i], opacity=self.opacity, name=f'{self.frame_name}_{i}')
 
   def rotate_mesh(self, A):  
@@ -118,10 +118,6 @@ class Body:
         norm_actor = plotter.add_mesh(normal_mesh, color=arrow_col)
         self.norm_actors.append(norm_actor)
 
-    # scale actors
-    for actor in self.surf_actors + self.norm_actors:
-      actor.scale = (5, 5, 5)
-
   def toggle_visibility(self, show_surf, show_norms):
     for actor in self.surf_actors:
       actor.visibility = show_surf
@@ -135,6 +131,29 @@ class Body:
   def rotate_mesh(self, dcm):
     for actor in self.surf_actors + self.norm_actors:
       actor.rotation_from(dcm.T)
+
+class Earth:
+  def __init__(self):
+    self.actor = None
+
+  def setup(self, r, radius, plotter):
+    self.radius = radius
+
+    earth_mesh = pv.examples.planets.load_planet(radius=self.radius)
+    earth_texture = pv.examples.load_globe_texture()
+
+    self.actor = plotter.add_mesh(earth_mesh, texture=earth_texture)
+    self.update_position(r)
+
+  def update_position(self, r):
+    # r is eci -> satellite
+    # convert to unit direction and transform to satellite -> eci
+    u = -r / np.linalg.norm(r)
+    self.actor.position = u*self.radius*1.2
+
+  def toggle_visibility(self):
+    self.actor.visibility = not self.actor.visibility
+
 
 def q_to_dcm(q):
   # convert to dcm

@@ -22,26 +22,39 @@ class OPT:
   FILEPATH_ATTITUDE: str = 'qdata.txt'
   FILEPATH_GEOMETRY: str = 'geometry.json'
 
+  # simulation stepsize (dt)
   SIMULATION_TIMESTEP: int = 1
+  # indices of quaternion, orbital pos, and orbital vel in state data
   I_Q: tuple[int, int] = (6, 10)
   I_R: tuple[int, int] = (0, 3)
   I_V: tuple[int, int] = (3, 6)
+
+  # roughly longest length of satellite, used to resize axes and earth
+  GEOMETRY_SCALE: float = 0.3
+  # how much bigger the earth is compared to the satellite
+  EARTH_SIZE: float = 10
   
   WINDOW_SIZE: tuple[int, int] = (800, 600)
 
   autoplay: bool = False
   LOOP_PLAYBACK: bool = True
+  # how many frames to increment each playback step
   PLAYBACK_SPEED: int = 5
+  # how often (ms) that a playback step occurs (17ms = 1/(60fps))
   TIMER_INT: int = 17
 
   show_ref_axes: bool = True
-  show_body_axes: bool = True
-  show_body_mesh: bool = False
-  show_normals: bool = True
+  show_body_axes: bool = False
+
+  show_body_mesh: bool = True
+  show_normals: bool = False
+
+  show_earth: bool = True
 
 
+#TODO: add orientation of earth
+#TODO: add sun
 #TODO: add export option (and settings)
-#TODO: add earth/sun
 #TODO: add LVLH
 
 
@@ -76,26 +89,51 @@ class MainWindow(QMainWindow):
     self.plotter.close()
     event.accept()
 
+  def update_frame(self, frame):
+    # simulation time
+    t = (frame-1)*OPT.SIMULATION_TIMESTEP
+    self.label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
+
+    dcm = self.dcm_list[frame-1]
+    r = self.r_list[frame-1]
+
+    if OPT.show_body_axes:
+      self.body_axes.rotate_mesh(dcm)
+
+    if OPT.show_body_mesh and hasattr(self, 'body_mesh'):
+      self.body_mesh.rotate_mesh(dcm)
+
+    if OPT.show_earth and hasattr(self, 'earth'):
+      self.earth.update_position(r)
+
+    self.plotter.render()
+
   def setup_plotter(self, central_widget) -> QWidget:
     # create plotter
     self.plotter = QtInteractor(central_widget)
 
     # base ref frame
     self.ref_axes = Axes(frame_name='ref', opacity=0.3)
-    self.ref_axes.setup(np.eye(3), self.plotter)
+    self.ref_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
     if not OPT.show_ref_axes:
       self.ref_axes.toggle_visibility()
 
     # base body frame
     self.body_axes = Axes(frame_name='body')
-    self.body_axes.setup(np.eye(3), self.plotter)
+    self.body_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
     if not OPT.show_body_axes:
       self.body_axes.toggle_visibility()
 
-    # plot centre
+    # plot satellite com
     self.plotter.add_mesh(pv.Sphere(radius=0.05), color='grey')
 
-    #pl.background_color = 'black'
+    # plot earth
+    if OPT.I_R:
+      self.earth = Earth()
+      self.earth.setup(self.r_list[0], OPT.GEOMETRY_SCALE*OPT.EARTH_SIZE, self.plotter)
+      if not OPT.show_earth:
+        self.earth.toggle_visibility()
+
     self.plotter.add_axes()
 
     # create layout
@@ -125,24 +163,10 @@ class MainWindow(QMainWindow):
 
 
     # playback slider
-    def set_frame(frame):
-      # simulation time
-      t = (frame-1)*OPT.SIMULATION_TIMESTEP
-      self.label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
-
-      dcm = self.dcm_list[frame-1]
-      if OPT.show_body_axes:
-        self.body_axes.rotate_mesh(dcm)
-
-      if OPT.show_body_mesh and hasattr(self, 'body_mesh'):
-        self.body_mesh.rotate_mesh(dcm)
-
-      self.plotter.render()
-    
-    set_frame(1)
+    self.update_frame(1)
     self.frame_slider = QSlider(Qt.Orientation.Horizontal)
     self.frame_slider.setRange(1, self.N_FRAMES)
-    self.frame_slider.valueChanged.connect(set_frame)
+    self.frame_slider.valueChanged.connect(self.update_frame)
 
 
     # autoplay functionality
@@ -241,7 +265,6 @@ class MainWindow(QMainWindow):
       checkable=True
     )
     self.body_mesh_btn.toggled.connect(toggle_body_mesh)
-    self.body_mesh_btn.setChecked(OPT.show_body_mesh)
 
     # satellite normals toggle
     def toggle_norms(is_checked):
@@ -259,6 +282,8 @@ class MainWindow(QMainWindow):
       enabled=OPT.show_body_mesh
     )
     self.norm_btn.toggled.connect(toggle_norms)
+
+    self.body_mesh_btn.setChecked(OPT.show_body_mesh)
     self.norm_btn.setChecked(OPT.show_normals)
 
 
