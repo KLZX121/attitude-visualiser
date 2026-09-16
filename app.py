@@ -18,17 +18,21 @@ from qtpy.QtWidgets import (
 )
 
 @dataclass
-class SETTINGS:
+class OPT:
   FILEPATH_ATTITUDE: str = 'qdata.txt'
   FILEPATH_GEOMETRY: str = 'geometry.json'
+
+  SIMULATION_TIMESTEP: int = 1
+  I_Q: tuple[int, int] = (6, 10)
+  I_R: tuple[int, int] = (0, 3)
+  I_V: tuple[int, int] = (3, 6)
+  
   WINDOW_SIZE: tuple[int, int] = (800, 600)
 
   autoplay: bool = False
   LOOP_PLAYBACK: bool = True
   PLAYBACK_SPEED: int = 5
   TIMER_INT: int = 17
-
-  SIMULATION_TIMESTEP: int = 1
 
   show_ref_axes: bool = True
   show_body_axes: bool = True
@@ -37,8 +41,8 @@ class SETTINGS:
 
 
 #TODO: add export option (and settings)
-#TODO: add simulation time/frame display option
-#TODO: add background
+#TODO: add earth/sun
+#TODO: add LVLH
 
 
 class MainWindow(QMainWindow):
@@ -46,10 +50,10 @@ class MainWindow(QMainWindow):
     super().__init__()
 
     self.setWindowTitle('Attitude Visualiser v0.1')
-    self.resize(SETTINGS.WINDOW_SIZE[0], SETTINGS.WINDOW_SIZE[1])
+    self.resize(OPT.WINDOW_SIZE[0], OPT.WINDOW_SIZE[1])
 
     # read data
-    self.dcm_list = read_attitude_data(SETTINGS.FILEPATH_ATTITUDE)
+    self.dcm_list, self.r_list, self.v_list = read_state_data(OPT.FILEPATH_ATTITUDE, OPT.I_Q, OPT.I_R, OPT.I_V)
     self.N_FRAMES = len(self.dcm_list)
 
     # create central widget and layout
@@ -79,13 +83,13 @@ class MainWindow(QMainWindow):
     # base ref frame
     self.ref_axes = Axes(frame_name='ref', opacity=0.3)
     self.ref_axes.setup(np.eye(3), self.plotter)
-    if not SETTINGS.show_ref_axes:
+    if not OPT.show_ref_axes:
       self.ref_axes.toggle_visibility()
 
     # base body frame
     self.body_axes = Axes(frame_name='body')
     self.body_axes.setup(np.eye(3), self.plotter)
-    if not SETTINGS.show_body_axes:
+    if not OPT.show_body_axes:
       self.body_axes.toggle_visibility()
 
     # plot centre
@@ -109,28 +113,28 @@ class MainWindow(QMainWindow):
   def setup_controls(self) -> tuple[QHBoxLayout, QHBoxLayout]:
     # play pause button
     def toggle_play(is_checked):
-      SETTINGS.autoplay = is_checked
+      OPT.autoplay = is_checked
 
       if is_checked:
         self.play_button.setText('Pause')
       else:
         self.play_button.setText('Play')
     
-    self.play_button = QPushButton('Pause' if SETTINGS.autoplay else 'Play', checkable=True, checked=SETTINGS.autoplay)
+    self.play_button = QPushButton('Pause' if OPT.autoplay else 'Play', checkable=True, checked=OPT.autoplay)
     self.play_button.toggled.connect(toggle_play)
 
 
     # playback slider
     def set_frame(frame):
       # simulation time
-      t = (frame-1)*SETTINGS.SIMULATION_TIMESTEP
+      t = (frame-1)*OPT.SIMULATION_TIMESTEP
       self.label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
 
       dcm = self.dcm_list[frame-1]
-      if SETTINGS.show_body_axes:
+      if OPT.show_body_axes:
         self.body_axes.rotate_mesh(dcm)
 
-      if SETTINGS.show_body_mesh and hasattr(self, 'body_mesh'):
+      if OPT.show_body_mesh and hasattr(self, 'body_mesh'):
         self.body_mesh.rotate_mesh(dcm)
 
       self.plotter.render()
@@ -143,14 +147,14 @@ class MainWindow(QMainWindow):
 
     # autoplay functionality
     def timer_callback():
-      if not SETTINGS.autoplay:
+      if not OPT.autoplay:
         return
       
       current_frame = self.frame_slider.value()
   
-      next_frame = current_frame + SETTINGS.PLAYBACK_SPEED
-      if SETTINGS.LOOP_PLAYBACK:
-        next_frame = (current_frame % self.N_FRAMES) + SETTINGS.PLAYBACK_SPEED
+      next_frame = current_frame + OPT.PLAYBACK_SPEED
+      if OPT.LOOP_PLAYBACK:
+        next_frame = (current_frame % self.N_FRAMES) + OPT.PLAYBACK_SPEED
       elif next_frame >= self.N_FRAMES:
         return
   
@@ -158,41 +162,41 @@ class MainWindow(QMainWindow):
     
     self.timer = QTimer(self)
     self.timer.timeout.connect(timer_callback)
-    self.timer.start(SETTINGS.TIMER_INT)
+    self.timer.start(OPT.TIMER_INT)
 
 
     # ref axes toggle
     def toggle_raxes(is_checked):
-      SETTINGS.show_ref_axes = is_checked
-      self.raxes_btn.setText('Hide Ref Axes' if SETTINGS.show_ref_axes else 'Show Ref Axes')
+      OPT.show_ref_axes = is_checked
+      self.raxes_btn.setText('Hide Ref Axes' if OPT.show_ref_axes else 'Show Ref Axes')
 
       self.ref_axes.toggle_visibility()
 
       self.plotter.render()
 
     self.raxes_btn = QPushButton(
-      'Hide Ref Axes' if SETTINGS.show_ref_axes else 'Show Ref Axes',
+      'Hide Ref Axes' if OPT.show_ref_axes else 'Show Ref Axes',
       checkable=True,
-      checked=SETTINGS.show_ref_axes
+      checked=OPT.show_ref_axes
     )
     self.raxes_btn.toggled.connect(toggle_raxes)
 
 
     # body axes toggle
     def toggle_baxes(is_checked):
-      SETTINGS.show_body_axes = is_checked
-      self.baxes_btn.setText('Hide Body Axes' if SETTINGS.show_body_axes else 'Show Body Axes')
+      OPT.show_body_axes = is_checked
+      self.baxes_btn.setText('Hide Body Axes' if OPT.show_body_axes else 'Show Body Axes')
 
       self.body_axes.toggle_visibility()
-      if SETTINGS.show_body_axes: 
+      if OPT.show_body_axes: 
         self.body_axes.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
 
       self.plotter.render()
 
     self.baxes_btn = QPushButton(
-      'Hide Body Axes' if SETTINGS.show_body_axes else 'Show Body Axes',
+      'Hide Body Axes' if OPT.show_body_axes else 'Show Body Axes',
       checkable=True,
-      checked=SETTINGS.show_body_axes
+      checked=OPT.show_body_axes
     )
     self.baxes_btn.toggled.connect(toggle_baxes)
 
@@ -203,7 +207,7 @@ class MainWindow(QMainWindow):
 
       if not hasattr(self, 'geometry_data'):
         # initialise body mesh
-        geometry_data = read_geometry_data(SETTINGS.FILEPATH_GEOMETRY)
+        geometry_data = read_geometry_data(OPT.FILEPATH_GEOMETRY)
         if not geometry_data:
           with QSignalBlocker(self.body_mesh_btn):
             self.body_mesh_btn.setChecked(False)
@@ -211,20 +215,20 @@ class MainWindow(QMainWindow):
           self.body_mesh_btn.setText('Show Satellite')
           return
 
-        SETTINGS.show_body_mesh = True
+        OPT.show_body_mesh = True
         self.geometry_data = geometry_data
         self.body_mesh = Body(self.geometry_data)
-        self.body_mesh.setup(self.plotter, SETTINGS.show_normals)
+        self.body_mesh.setup(self.plotter, OPT.show_normals)
         self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
 
         self.norm_btn.setEnabled(True)
 
       else:
         # toggle visibility of body mesh
-        SETTINGS.show_body_mesh = is_checked
-        self.body_mesh.toggle_visibility(SETTINGS.show_body_mesh, SETTINGS.show_normals)
+        OPT.show_body_mesh = is_checked
+        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals)
 
-        if SETTINGS.show_body_mesh: 
+        if OPT.show_body_mesh: 
           self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
           self.norm_btn.setEnabled(True)
         else:
@@ -233,29 +237,29 @@ class MainWindow(QMainWindow):
       self.plotter.render()
 
     self.body_mesh_btn = QPushButton(
-      'Hide Satellite' if SETTINGS.show_body_mesh else 'Show Satellite',
+      'Hide Satellite' if OPT.show_body_mesh else 'Show Satellite',
       checkable=True
     )
     self.body_mesh_btn.toggled.connect(toggle_body_mesh)
-    self.body_mesh_btn.setChecked(SETTINGS.show_body_mesh)
+    self.body_mesh_btn.setChecked(OPT.show_body_mesh)
 
     # satellite normals toggle
     def toggle_norms(is_checked):
-      SETTINGS.show_normals = is_checked
-      self.norm_btn.setText('Hide Norms' if SETTINGS.show_normals else 'Show Norms')
+      OPT.show_normals = is_checked
+      self.norm_btn.setText('Hide Norms' if OPT.show_normals else 'Show Norms')
 
       if hasattr(self, 'body_mesh'):
-        self.body_mesh.toggle_visibility(SETTINGS.show_body_mesh, SETTINGS.show_normals)
+        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals)
 
       self.plotter.render()
 
     self.norm_btn = QPushButton(
-      'Hide Norms' if SETTINGS.show_normals else 'Show Norms',
+      'Hide Norms' if OPT.show_normals else 'Show Norms',
       checkable=True,
-      enabled=SETTINGS.show_body_mesh
+      enabled=OPT.show_body_mesh
     )
     self.norm_btn.toggled.connect(toggle_norms)
-    self.norm_btn.setChecked(SETTINGS.show_normals)
+    self.norm_btn.setChecked(OPT.show_normals)
 
 
     # controls ui layout

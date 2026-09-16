@@ -4,36 +4,34 @@ import json
 
 from types import SimpleNamespace
 
-def read_attitude_data(filepath) -> np.ndarray:
-  # formatted as a n x 4 csv
-  q_list = np.loadtxt(filepath, delimiter=',')
+def read_state_data(filepath, i_q, i_r, i_v):
+  # formatted as a n(t) x n(x) csv
+  x_list = np.loadtxt(filepath, delimiter=',')
 
   # compute dcms
+
   dcm_list = []
-
-  def q_to_dcm(q):
-    # convert to dcm
-    qs = q[0]
-    qv = q[1:]
-
-    def skew(v):
-      return np.array([
-        [0, -v[2], v[1]],
-        [v[2], 0, -v[0]],
-        [-v[1], v[0], 0]
-      ])
-
-    dcm = (qs**2 - np.linalg.norm(qv)**2)*np.eye(3) - 2*qs*skew(qv) + 2*np.outer(qv, qv)
-    return dcm
-  
-  for q in q_list:
-    # input quaternion (scalar first, shuster/JPL convention)
+  r_list = []
+  v_list = []
+  for x in x_list:
+    # quaternion (scalar first, shuster/JPL convention)
+    q = x[i_q[0]:i_q[1]]
     q = q / np.linalg.norm(q)
 
     dcm = q_to_dcm(q)
     dcm_list.append(dcm)
 
-  return dcm_list
+    # orbital position (ECI)
+    if i_r:
+      r = x[i_r[0]:i_r[1]]
+      r_list.append(r)
+
+    # orbital velocity (ECI)
+    if i_v:
+      v =x[i_v[0]:i_v[1]]
+      v_list.append(v)
+
+  return dcm_list, r_list, v_list
 
 def read_geometry_data(filepath, return_type=None) -> np.ndarray | SimpleNamespace | None:
   try:
@@ -137,3 +135,18 @@ class Body:
   def rotate_mesh(self, dcm):
     for actor in self.surf_actors + self.norm_actors:
       actor.rotation_from(dcm.T)
+
+def q_to_dcm(q):
+  # convert to dcm
+  qs = q[0]
+  qv = q[1:]
+
+  def skew(v):
+    return np.array([
+      [0, -v[2], v[1]],
+      [v[2], 0, -v[0]],
+      [-v[1], v[0], 0]
+    ])
+
+  dcm = (qs**2 - np.linalg.norm(qv)**2)*np.eye(3) - 2*qs*skew(qv) + 2*np.outer(qv, qv)
+  return dcm
