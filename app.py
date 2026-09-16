@@ -43,7 +43,13 @@ class OPT:
   # how often (ms) that a playback step occurs (17ms = 1/(60fps))
   TIMER_INT: int = 17
 
-  show_ref_axes: bool = True
+  # whether the camera should track the satellite over its orbit
+  CAM_TRACKING: bool = True
+  # the camera angle to use for tracking
+  # 'down' | 'forward'
+  cam_angle: str = 'forward'
+
+  show_eci_axes: bool = True
   show_body_axes: bool = False
 
   show_body_mesh: bool = True
@@ -52,6 +58,7 @@ class OPT:
   show_earth: bool = True
 
 
+#TODO: add camera tracking settings
 #TODO: add orientation of earth
 #TODO: add sun
 #TODO: add export option (and settings)
@@ -95,7 +102,6 @@ class MainWindow(QMainWindow):
     self.label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
 
     dcm = self.dcm_list[frame-1]
-    r = self.r_list[frame-1]
 
     if OPT.show_body_axes:
       self.body_axes.rotate_mesh(dcm)
@@ -103,9 +109,23 @@ class MainWindow(QMainWindow):
     if OPT.show_body_mesh and hasattr(self, 'body_mesh'):
       self.body_mesh.rotate_mesh(dcm)
 
-    if OPT.show_earth and hasattr(self, 'earth'):
-      self.earth.update_position(r)
+    if self.r_list and self.v_list:
+      r = self.r_list[frame-1]
+      v = self.v_list[frame-1]
+      if OPT.show_earth:
+        self.earth.update_position(r)
 
+      if OPT.CAM_TRACKING:
+        cam = self.plotter.camera
+        cam.focal_point = (0, 0, 0)
+
+        if OPT.cam_angle == 'down':
+          cam.position = -self.earth.u * 2
+        elif OPT.cam_angle == 'forward':
+          cam.position = (-v / np.linalg.norm(v)) * 2 + -self.earth.u * 0.8
+          cam.up = -self.earth.u
+
+    
     self.plotter.render()
 
   def setup_plotter(self, central_widget) -> QWidget:
@@ -113,10 +133,10 @@ class MainWindow(QMainWindow):
     self.plotter = QtInteractor(central_widget)
 
     # base ref frame
-    self.ref_axes = Axes(frame_name='ref', opacity=0.3)
-    self.ref_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
-    if not OPT.show_ref_axes:
-      self.ref_axes.toggle_visibility()
+    self.eci_axes = Axes(frame_name='ref', opacity=0.3)
+    self.eci_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
+    if not OPT.show_eci_axes:
+      self.eci_axes.toggle_visibility()
 
     # base body frame
     self.body_axes = Axes(frame_name='body')
@@ -125,7 +145,7 @@ class MainWindow(QMainWindow):
       self.body_axes.toggle_visibility()
 
     # plot satellite com
-    self.plotter.add_mesh(pv.Sphere(radius=0.05), color='grey')
+    self.plotter.add_mesh(pv.Sphere(radius=OPT.GEOMETRY_SCALE*0.05), color='grey')
 
     # plot earth
     if OPT.I_R:
@@ -189,19 +209,19 @@ class MainWindow(QMainWindow):
     self.timer.start(OPT.TIMER_INT)
 
 
-    # ref axes toggle
+    # ref eci axes toggle
     def toggle_raxes(is_checked):
-      OPT.show_ref_axes = is_checked
-      self.raxes_btn.setText('Hide Ref Axes' if OPT.show_ref_axes else 'Show Ref Axes')
+      OPT.show_eci_axes = is_checked
+      self.raxes_btn.setText('Hide ECI Axes' if OPT.show_eci_axes else 'Show ECI Axes')
 
-      self.ref_axes.toggle_visibility()
+      self.eci_axes.toggle_visibility()
 
       self.plotter.render()
 
     self.raxes_btn = QPushButton(
-      'Hide Ref Axes' if OPT.show_ref_axes else 'Show Ref Axes',
+      'Hide ECI Axes' if OPT.show_eci_axes else 'Show ECI Axes',
       checkable=True,
-      checked=OPT.show_ref_axes
+      checked=OPT.show_eci_axes
     )
     self.raxes_btn.toggled.connect(toggle_raxes)
 

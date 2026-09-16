@@ -99,24 +99,24 @@ class Body:
       surf_actor = plotter.add_mesh(surface_mesh, color=mesh_col)
       self.surf_actors.append(surf_actor)
 
-      if show_normals:
-        """
-        centroid_mesh = pv.Sphere(radius=0.003, center=surface_obj.centroid)
-        cent_actor =  plotter.add_mesh(centroid_mesh, color='white')
-        self.norm_actors.append(cent_actor)
-        """
+      """
+      centroid_mesh = pv.Sphere(radius=0.003, center=surface_obj.centroid)
+      cent_actor =  plotter.add_mesh(centroid_mesh, color='white')
+      self.norm_actors.append(cent_actor)
+      """
 
-        normal_mesh = pv.Arrow(start=surface_obj.centroid, direction=surface_obj.normal, scale=0.03)
-        arrow_col = None
-        if '_x_'in surface_obj.name:
-          arrow_col = 'red'
-        elif '_y_' in surface_obj.name:
-          arrow_col = 'green'
-        elif '_z_' in surface_obj.name:
-          arrow_col = 'blue'
+      normal_mesh = pv.Arrow(start=surface_obj.centroid, direction=surface_obj.normal, scale=0.03)
+      arrow_col = None
+      if '_x_'in surface_obj.name:
+        arrow_col = 'red'
+      elif '_y_' in surface_obj.name:
+        arrow_col = 'green'
+      elif '_z_' in surface_obj.name:
+        arrow_col = 'blue'
         
-        norm_actor = plotter.add_mesh(normal_mesh, color=arrow_col)
-        self.norm_actors.append(norm_actor)
+      norm_actor = plotter.add_mesh(normal_mesh, color=arrow_col)
+      self.norm_actors.append(norm_actor)
+      norm_actor.visibility = show_normals
 
   def toggle_visibility(self, show_surf, show_norms):
     for actor in self.surf_actors:
@@ -126,6 +126,7 @@ class Body:
         actor.visibility = False
       else:
         actor.visibility = show_norms
+
 
 
   def rotate_mesh(self, dcm):
@@ -148,8 +149,8 @@ class Earth:
   def update_position(self, r):
     # r is eci -> satellite
     # convert to unit direction and transform to satellite -> eci
-    u = -r / np.linalg.norm(r)
-    self.actor.position = u*self.radius*1.2
+    self.u = -r / np.linalg.norm(r)
+    self.actor.position = self.u*self.radius*1.2
 
   def toggle_visibility(self):
     self.actor.visibility = not self.actor.visibility
