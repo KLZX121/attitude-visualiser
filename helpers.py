@@ -9,9 +9,7 @@ def read_state_data(filepath, i_q, i_r, i_v):
   x_list = []
   with open(filepath, 'r') as f:
     json_str = json.load(f)
-    print(json_str)
     x_list = np.array(json_str)
-    print(x_list)
 
   # compute dcms
 
@@ -59,6 +57,13 @@ def read_geometry_data(filepath, return_type=None) -> np.ndarray | SimpleNamespa
     print(f'The file \'{filepath}\' could not be found. Make sure your file is named and placed correctly.')
     return None
 
+def read_surface_data(filepath) -> SimpleNamespace:
+  data = {}
+  with open(filepath, 'r') as f:
+    data = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+
+  return data
+
 
 class Axes:
   def __init__(self, frame_name, cols=('red', 'green', 'blue'), labels=('x', 'y', 'z'), opacity=1):
@@ -89,8 +94,9 @@ class Body:
 
     self.surf_actors = []
     self.norm_actors = []
+    self.force_actors = []
 
-  def setup(self, plotter, show_normals):
+  def setup(self, plotter, show_normals, add_force_actors=False, show_forces=False):
     for surface_obj in self.geometry.surfaces:
       # convert vertex data to PolyData
       vertices = pv.PolyData(surface_obj.vertices)
@@ -123,7 +129,15 @@ class Body:
       self.norm_actors.append(norm_actor)
       norm_actor.visibility = show_normals
 
-  def toggle_visibility(self, show_surf, show_norms):
+      # surface force actors
+      if add_force_actors:
+        force_mesh = pv.Arrow(start=(-1, 0, 0), direction=(1, 0, 0), tip_resolution=10, shaft_resolution=10)
+        force_actor = plotter.add_mesh(force_mesh, color='red')
+        force_actor.scale = 0
+        self.force_actors.append(force_actor)
+        force_actor.visibility = show_forces
+
+  def toggle_visibility(self, show_surf, show_norms, show_forces):
     for actor in self.surf_actors:
       actor.visibility = show_surf
     for actor in self.norm_actors:
@@ -131,12 +145,36 @@ class Body:
         actor.visibility = False
       else:
         actor.visibility = show_norms
-
+    for actor in self.force_actors:
+      if not show_surf:
+        actor.visibility = False
+      else:
+        actor.visibility = show_forces
 
 
   def rotate_mesh(self, dcm):
-    for actor in self.surf_actors + self.norm_actors:
+    for actor in self.surf_actors + self.norm_actors + self.force_actors:
       actor.rotation_from(dcm.T)
+
+  def update_forces(self, surface_forces, dcm, scale_factor):    
+    forces = surface_forces.a.f
+    summed_forces = [np.linalg.norm(f) for f in forces]
+
+    for i, force_actor in enumerate(self.force_actors):
+      f = summed_forces[i]
+      uf = [0, 0, 0]
+      if f: uf = surface_forces.a.f[i] / f
+
+      actor_scale = f * scale_factor
+
+      force_actor.scale = actor_scale
+      force_actor.position = self.surf_actors[i].center
+
+      # rotate in direction of uf
+      if any(uf):
+        rot = pv.Transform().rotate_vector(np.cross([1, 0, 0], uf), np.degrees(np.arccos(np.dot([1, 0, 0], uf))))
+        force_actor.rotation_from(dcm.T @ rot.rotation_matrix)
+
 
 class Earth:
   def __init__(self):

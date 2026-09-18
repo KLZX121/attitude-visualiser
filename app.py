@@ -19,8 +19,9 @@ from qtpy.QtWidgets import (
 
 @dataclass
 class OPT:
-  FILEPATH_ATTITUDE: str = 'xdata.json'
+  FILEPATH_STATE: str = 'xdata.json'
   FILEPATH_GEOMETRY: str = 'geometry.json'
+  FILEPATH_SURFACE_FORCES: str = 'surfdata.json'
 
   # simulation stepsize (dt)
   SIMULATION_TIMESTEP: int = 1
@@ -33,6 +34,8 @@ class OPT:
   GEOMETRY_SCALE: float = 0.3
   # how much bigger the earth is compared to the satellite
   EARTH_SIZE: float = 10
+  # order of magnitude of forces
+  FORCE_SCALE: float = 0.15*10**5
   
   WINDOW_SIZE: tuple[int, int] = (800, 600)
 
@@ -47,17 +50,20 @@ class OPT:
   CAM_TRACKING: bool = True
   # the camera angle to use for tracking
   # 'down' | 'forward'
-  cam_angle: str = 'forward'
+  cam_angle: str = 'down'
 
   show_eci_axes: bool = True
   show_body_axes: bool = False
 
+  FORCES_AVAILABLE: bool = False
+
   show_body_mesh: bool = True
   show_normals: bool = False
+  show_forces: bool = True
 
   show_earth: bool = True
 
-#TODO: visualise surface/total disturbance forces/torques
+#TODO: visualise torques
 #TODO: add incremental playback (frame by frame)
 #TODO: add camera tracking settings
 #TODO: add orientation of earth
@@ -74,8 +80,12 @@ class MainWindow(QMainWindow):
     self.resize(OPT.WINDOW_SIZE[0], OPT.WINDOW_SIZE[1])
 
     # read data
-    self.dcm_list, self.r_list, self.v_list = read_state_data(OPT.FILEPATH_ATTITUDE, OPT.I_Q, OPT.I_R, OPT.I_V)
+    self.dcm_list, self.r_list, self.v_list = read_state_data(OPT.FILEPATH_STATE, OPT.I_Q, OPT.I_R, OPT.I_V)
     self.N_FRAMES = len(self.dcm_list)
+
+    self.surface_forces = read_surface_data(OPT.FILEPATH_SURFACE_FORCES)
+    if self.surface_forces:
+      OPT.FORCES_AVAILABLE = True
 
     # create central widget and layout
     central_widget = QWidget()
@@ -104,12 +114,20 @@ class MainWindow(QMainWindow):
 
     dcm = self.dcm_list[frame-1]
 
+    # update body axes orientation
     if OPT.show_body_axes:
       self.body_axes.rotate_mesh(dcm)
 
+    # update satellite body orientation
     if OPT.show_body_mesh and hasattr(self, 'body_mesh'):
       self.body_mesh.rotate_mesh(dcm)
 
+      # update surface forces
+      if OPT.show_forces:
+        self.body_mesh.update_forces(self.surface_forces[frame-1], dcm, OPT.FORCE_SCALE)
+      
+
+    # update earth position
     if self.r_list and self.v_list:
       r = self.r_list[frame-1]
       v = self.v_list[frame-1]
@@ -154,6 +172,7 @@ class MainWindow(QMainWindow):
       self.earth.setup(self.r_list[0], OPT.GEOMETRY_SCALE*OPT.EARTH_SIZE, self.plotter)
       if not OPT.show_earth:
         self.earth.toggle_visibility()
+    
 
     self.plotter.add_axes()
 
@@ -250,6 +269,7 @@ class MainWindow(QMainWindow):
     def toggle_body_mesh(is_checked):
       self.body_mesh_btn.setText('Hide Satellite' if is_checked else 'Show Satellite')
 
+      # TODO: move this to general function outside of control setup
       if not hasattr(self, 'geometry_data'):
         # initialise body mesh
         geometry_data = read_geometry_data(OPT.FILEPATH_GEOMETRY)
@@ -262,8 +282,10 @@ class MainWindow(QMainWindow):
 
         OPT.show_body_mesh = True
         self.geometry_data = geometry_data
+        
         self.body_mesh = Body(self.geometry_data)
-        self.body_mesh.setup(self.plotter, OPT.show_normals)
+        self.body_mesh.setup(self.plotter, OPT.show_normals, OPT.FORCES_AVAILABLE, OPT.show_forces)
+
         self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
 
         self.norm_btn.setEnabled(True)
@@ -271,7 +293,7 @@ class MainWindow(QMainWindow):
       else:
         # toggle visibility of body mesh
         OPT.show_body_mesh = is_checked
-        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals)
+        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
 
         if OPT.show_body_mesh: 
           self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
@@ -293,7 +315,7 @@ class MainWindow(QMainWindow):
       self.norm_btn.setText('Hide Norms' if OPT.show_normals else 'Show Norms')
 
       if hasattr(self, 'body_mesh'):
-        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals)
+        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
 
       self.plotter.render()
 
