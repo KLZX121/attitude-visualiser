@@ -19,7 +19,7 @@ from qtpy.QtWidgets import (
 
 @dataclass
 class OPT:
-  FILEPATH_ATTITUDE: str = 'qdata.txt'
+  FILEPATH_ATTITUDE: str = 'xdata.json'
   FILEPATH_GEOMETRY: str = 'geometry.json'
 
   # simulation stepsize (dt)
@@ -57,7 +57,8 @@ class OPT:
 
   show_earth: bool = True
 
-
+#TODO: visualise surface/total disturbance forces/torques
+#TODO: add incremental playback (frame by frame)
 #TODO: add camera tracking settings
 #TODO: add orientation of earth
 #TODO: add sun

@@ -5,8 +5,13 @@ import json
 from types import SimpleNamespace
 
 def read_state_data(filepath, i_q, i_r, i_v):
-  # formatted as a n(t) x n(x) csv
-  x_list = np.loadtxt(filepath, delimiter=',')
+  # formatted as a n(t) x n(x) json
+  x_list = []
+  with open(filepath, 'r') as f:
+    json_str = json.load(f)
+    print(json_str)
+    x_list = np.array(json_str)
+    print(x_list)
 
   # compute dcms
 
