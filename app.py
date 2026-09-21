@@ -47,10 +47,9 @@ class OPT:
   TIMER_INT: int = 17
 
   # whether the camera should track the satellite over its orbit
-  CAM_TRACKING: bool = True
   # the camera angle to use for tracking
-  # 'down' | 'forward'
-  cam_angle: str = 'down'
+  # None | 'down' | 'forward' | 'side' | 'free (o)' | 'free (i)'
+  tracking_camera: str = 'free (o)'
 
   show_eci_axes: bool = True
   show_body_axes: bool = False
@@ -127,22 +126,76 @@ class MainWindow(QMainWindow):
         self.body_mesh.update_forces(self.surface_forces[frame-1], dcm, OPT.FORCE_SCALE)
       
 
-    # update earth position
     if self.r_list and self.v_list:
       r = self.r_list[frame-1]
       v = self.v_list[frame-1]
+
+      u_r = r / np.linalg.norm(r)
+      u_v = v / np.linalg.norm(v)
+
+      # update earth position
       if OPT.show_earth:
         self.earth.update_position(r)
 
-      if OPT.CAM_TRACKING:
+      # use camera tracking
+      if OPT.tracking_camera:
         cam = self.plotter.camera
         cam.focal_point = (0, 0, 0)
 
-        if OPT.cam_angle == 'down':
+        if OPT.tracking_camera == 'down':
+          # motion towards top of screen
           cam.position = -self.earth.u * 2
-        elif OPT.cam_angle == 'forward':
-          cam.position = (-v / np.linalg.norm(v)) * 2 + -self.earth.u * 0.8
-          cam.up = -self.earth.u
+          cam.up = u_v
+        elif OPT.tracking_camera == 'forward':
+          # motion into screen
+          cam.position = -u_v * 2 + u_r * 0.8
+          cam.up = u_r
+        elif OPT.tracking_camera == 'side':
+          # motion towards right of screen
+          cam.position = np.cross(u_v, u_r) * 2
+          cam.up = u_r
+        elif OPT.tracking_camera == 'free (o)':
+          # arbitrary angle, fixed to orbital frame
+          if hasattr(self, 'ref_cam_pos'):
+            curr_earth_pos = self.earth.actor.position
+            curr_earth_dir = curr_earth_pos / np.linalg.norm(curr_earth_pos)
+
+            ref_earth_dir = self.ref_earth_pos / np.linalg.norm(self.ref_earth_pos)
+
+            axis = np.cross(ref_earth_dir, curr_earth_dir)
+            axis_norm = np.linalg.norm(axis)
+
+            if axis_norm > 1e-8:
+              axis /= axis_norm
+
+              angle = np.degrees(
+                np.arccos(
+                  np.clip(np.dot(ref_earth_dir, curr_earth_dir), -1.0, 1.0)
+                )
+              )
+
+              rot = pv.Transform().rotate_vector(axis, angle)
+
+              R = rot.rotation_matrix
+
+              cam.position = R @ self.ref_cam_pos
+
+            view = np.array(cam.direction)
+            earth = np.array(u_r)
+
+            right = np.cross(view, earth)
+            norm = np.linalg.norm(right)
+
+            if norm > 1e-8:
+              right /= norm
+              cam.up = np.cross(right, view)
+              cam.up /= np.linalg.norm(cam.up)
+
+        elif OPT.tracking_camera == 'free (i)':
+          # arbitrary angle, inertially fixed
+          None
+          
+          
 
     
     self.plotter.render()
@@ -172,6 +225,13 @@ class MainWindow(QMainWindow):
       self.earth.setup(self.r_list[0], OPT.GEOMETRY_SCALE*OPT.EARTH_SIZE, self.plotter)
       if not OPT.show_earth:
         self.earth.toggle_visibility()
+
+      # save camera position whenever user interacts
+      # used for camera orbital tracking
+      self.plotter.iren.add_observer(
+        "EndInteractionEvent",
+        self.save_camera_pos
+      )
     
 
     self.plotter.add_axes()
@@ -187,6 +247,10 @@ class MainWindow(QMainWindow):
     self.raise_()
 
     return plotter_widget
+
+  def save_camera_pos(self, *args):
+    self.ref_cam_pos = np.array(self.plotter.camera.position)
+    self.ref_earth_pos = np.array(self.earth.actor.position)
 
   def setup_controls(self) -> tuple[QHBoxLayout, QHBoxLayout]:
     # play pause button
