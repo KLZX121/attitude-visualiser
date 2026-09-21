@@ -72,6 +72,8 @@ class OPT:
 
 
 class MainWindow(QMainWindow):
+  user_interacting = False
+
   def __init__(self):
     super().__init__()
 
@@ -154,7 +156,7 @@ class MainWindow(QMainWindow):
           # motion towards right of screen
           cam.position = np.cross(u_v, u_r) * 2
           cam.up = u_r
-        elif OPT.tracking_camera == 'free (o)':
+        elif OPT.tracking_camera == 'free (o)' and not self.user_interacting:
           # arbitrary angle, fixed to orbital frame
           if hasattr(self, 'ref_cam_pos'):
             ref_earth_dir = self.ref_earth_pos / np.linalg.norm(self.ref_earth_pos)
@@ -233,8 +235,12 @@ class MainWindow(QMainWindow):
       # save camera position whenever user interacts
       # used for camera orbital tracking
       self.plotter.iren.add_observer(
+        "StartInteractionEvent",
+        self.start_interaction_cb
+      )
+      self.plotter.iren.add_observer(
         "EndInteractionEvent",
-        self.save_camera_pos
+        self.end_interaction_cb
       )
     
 
@@ -251,10 +257,6 @@ class MainWindow(QMainWindow):
     self.raise_()
 
     return plotter_widget
-
-  def save_camera_pos(self, *args):
-    self.ref_cam_pos = np.array(self.plotter.camera.position)
-    self.ref_earth_pos = np.array(self.earth.actor.position)
 
   def setup_controls(self) -> tuple[QHBoxLayout, QHBoxLayout]:
     # play pause button
@@ -389,6 +391,15 @@ class MainWindow(QMainWindow):
     toggle_layout.addWidget(self.norm_btn)
 
     return toggle_layout, playback_layout
+
+  def start_interaction_cb(self, *args):
+    self.user_interacting = True
+
+  def end_interaction_cb(self, *args):
+    self.user_interacting = False
+    self.ref_cam_pos = np.array(self.plotter.camera.position)
+    self.ref_earth_pos = np.array(self.earth.actor.position)
+
 
 def main():
   app = QApplication(sys.argv)
