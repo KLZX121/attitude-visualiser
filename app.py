@@ -48,8 +48,12 @@ class OPT:
 
   # whether the camera should track the satellite over its orbit
   # the camera angle to use for tracking
-  CAM_LABELS = ['Free', 'Down', 'Forward', 'Side', 'Orbital', 'Inertial']
-  tracking_camera: str = 'Free'
+  CAM_LABELS = ['Free', 'Orbital', 'Down', 'Forward', 'Side', 'Inertial']
+  tracking_camera: str = 'Orbital'
+
+  # background image/skybox
+  BACKGROUNDS = ['Black', 'White', 'Stars']
+  background = 'Black'
 
   show_eci_axes: bool = False
   show_body_axes: bool = False
@@ -103,99 +107,6 @@ class MainWindow(QMainWindow):
     central_layout.addWidget(plotter_widget, 1)
     central_layout.addLayout(playback_layout)
 
-  def closeEvent(self, event):
-    self.plotter.close()
-    event.accept()
-
-  def update_frame(self, frame=None):
-    # simulation time
-    if not frame:
-      frame = self.frame_slider.value()
-
-    t = (frame-1)*OPT.SIMULATION_TIMESTEP
-    self.hud_label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
-
-    dcm = self.dcm_list[frame-1]
-
-    # update body axes orientation
-    if OPT.show_body_axes:
-      self.body_axes.rotate_mesh(dcm)
-
-    # update satellite body orientation
-    if OPT.show_body_mesh and hasattr(self, 'body_mesh'):
-      self.body_mesh.rotate_mesh(dcm)
-
-      # update surface forces
-      if OPT.show_forces:
-        self.body_mesh.update_forces(self.surface_forces[frame-1], dcm, OPT.FORCE_SCALE)
-      
-
-    if self.r_list and self.v_list:
-      r = self.r_list[frame-1]
-      v = self.v_list[frame-1]
-
-      u_r = r / np.linalg.norm(r)
-      u_v = v / np.linalg.norm(v)
-
-      # update earth position
-      if OPT.show_earth:
-        self.earth.update_position(r)
-
-      # use camera tracking
-      if not OPT.tracking_camera == 'Free':
-        cam = self.plotter.camera
-        cam.focal_point = (0, 0, 0)
-
-        if OPT.tracking_camera == 'Down':
-          # motion towards top of screen
-          cam.position = -self.earth.u * 2
-          cam.up = u_v
-        elif OPT.tracking_camera == 'Forward':
-          # motion into screen
-          cam.position = -u_v * 2 + u_r * 0.8
-          cam.up = u_r
-        elif OPT.tracking_camera == 'Side':
-          # motion towards right of screen
-          cam.position = np.cross(u_v, u_r) * 2
-          cam.up = u_r
-        elif OPT.tracking_camera == 'Orbital' and not self.user_interacting:
-          # arbitrary angle, fixed to orbital frame
-          if hasattr(self, 'ref_cam_pos'):
-            ref_earth_dir = self.ref_earth_pos / np.linalg.norm(self.ref_earth_pos)
-
-            axis = np.cross(ref_earth_dir, -u_r)
-            axis_norm = np.linalg.norm(axis)
-
-            if axis_norm > 1e-8:
-              axis /= axis_norm
-
-              angle = np.degrees(np.arccos(
-                np.clip(np.dot(ref_earth_dir, -u_r), -1.0, 1.0)
-              ))
-
-              rot = pv.Transform().rotate_vector(axis, angle)
-
-              R = rot.rotation_matrix
-
-              cam.position = R @ self.ref_cam_pos
-
-            view = np.array(cam.direction)
-            earth = np.array(u_r)
-
-            right = np.cross(view, earth)
-            norm = np.linalg.norm(right)
-
-            if norm > 1e-8:
-              right /= norm
-              cam.up = np.cross(right, view)
-              cam.up /= np.linalg.norm(cam.up)
-
-        elif OPT.tracking_camera == 'Inertial':
-          # arbitrary angle, inertially fixed
-          None
-    
-    self.plotter.render()
-
   def setup_plotter(self, central_widget) -> QWidget:
     # create plotter
     self.plotter = QtInteractor(central_widget)
@@ -244,7 +155,12 @@ class MainWindow(QMainWindow):
         "EndInteractionEvent",
         self.end_interaction_cb
       )
-    
+
+    # 16k starry skybox (Stars)
+    skybox_texture = pv.examples.download_cubemap_space_16k().to_skybox()
+    self.bg_stars, _ = self.plotter.add_actor(skybox_texture)
+    self.bg_stars.visibility = False
+
 
     self.plotter.add_axes()
 
@@ -254,9 +170,10 @@ class MainWindow(QMainWindow):
     container.addWidget(self.plotter.interactor)
 
     self.hud_label = QLabel('', plotter_widget)
-    self.hud_label.setStyleSheet('color: black;')
+    self.hud_label.setStyleSheet('color: white;')
     self.hud_label.move(20, 20)
-    self.raise_()
+
+    self.change_bg(OPT.background)
 
     return plotter_widget
 
@@ -304,15 +221,28 @@ class MainWindow(QMainWindow):
     # camera tracking mode
     def switch_cam(*_):
       curr_label = self.cam_btn.text()
-      next_label = (OPT.CAM_LABELS.index(curr_label) + 1) % len(OPT.CAM_LABELS)
+      next_label_i = (OPT.CAM_LABELS.index(curr_label) + 1) % len(OPT.CAM_LABELS)
 
-      OPT.tracking_camera = OPT.CAM_LABELS[next_label]
+      OPT.tracking_camera = OPT.CAM_LABELS[next_label_i]
       self.cam_btn.setText(OPT.tracking_camera)
 
       self.update_frame()
 
     self.cam_btn = QPushButton(OPT.tracking_camera)
     self.cam_btn.clicked.connect(switch_cam)
+
+    # background switching
+    def switch_bg(*_):
+      curr_label = self.bg_btn.text()
+      next_label_i = (OPT.BACKGROUNDS.index(curr_label) + 1) % len(OPT.BACKGROUNDS)
+
+      OPT.background = OPT.BACKGROUNDS[next_label_i]
+      self.bg_btn.setText(OPT.background)
+
+      self.change_bg(OPT.background)
+
+    self.bg_btn = QPushButton(OPT.background)
+    self.bg_btn.clicked.connect(switch_bg)
 
     # ref eci axes toggle
     def toggle_raxes(is_checked):
@@ -406,7 +336,9 @@ class MainWindow(QMainWindow):
 
     toggle_layout = QHBoxLayout()
     toggle_layout.addWidget(QLabel('Camera:'), 1)
-    toggle_layout.addWidget(self.cam_btn, 2)
+    toggle_layout.addWidget(self.cam_btn, 3)
+    toggle_layout.addWidget(QLabel('Background:'), 1)
+    toggle_layout.addWidget(self.bg_btn, 2)
     toggle_layout.addWidget(QLabel('Toggles:'), 1)
     toggle_layout.addWidget(self.raxes_btn, 2)
     toggle_layout.addWidget(self.baxes_btn, 2)
@@ -416,6 +348,119 @@ class MainWindow(QMainWindow):
 
     return toggle_layout, playback_layout
 
+  def update_frame(self, frame=None):
+    # simulation time
+    if not frame:
+      frame = self.frame_slider.value()
+
+    t = (frame-1)*OPT.SIMULATION_TIMESTEP
+    self.hud_label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
+
+    dcm = self.dcm_list[frame-1]
+
+    # update body axes orientation
+    if OPT.show_body_axes:
+      self.body_axes.rotate_mesh(dcm)
+
+    # update satellite body orientation
+    if OPT.show_body_mesh and hasattr(self, 'body_mesh'):
+      self.body_mesh.rotate_mesh(dcm)
+
+      # update surface forces
+      if OPT.show_forces:
+        self.body_mesh.update_forces(self.surface_forces[frame-1], dcm, OPT.FORCE_SCALE)
+      
+
+    if self.r_list and self.v_list:
+      r = self.r_list[frame-1]
+      v = self.v_list[frame-1]
+
+      u_r = r / np.linalg.norm(r)
+      u_v = v / np.linalg.norm(v)
+
+      # update earth position
+      if OPT.show_earth:
+        self.earth.update_position(r)
+
+      # use camera tracking
+      if not OPT.tracking_camera == 'Free':
+        cam = self.plotter.camera
+        cam.focal_point = (0, 0, 0)
+
+        if OPT.tracking_camera == 'Down':
+          # motion towards top of screen
+          cam.position = -self.earth.u * 2
+          cam.up = u_v
+        elif OPT.tracking_camera == 'Forward':
+          # motion into screen
+          cam.position = -u_v * 2 + u_r * 0.8
+          cam.up = u_r
+        elif OPT.tracking_camera == 'Side':
+          # motion towards right of screen
+          cam.position = np.cross(u_v, u_r) * 2
+          cam.up = u_r
+        elif OPT.tracking_camera == 'Orbital' and not self.user_interacting:
+          # arbitrary angle, fixed to orbital frame
+          if hasattr(self, 'ref_cam_pos'):
+            ref_earth_dir = self.ref_earth_pos / np.linalg.norm(self.ref_earth_pos)
+
+            axis = np.cross(ref_earth_dir, -u_r)
+            axis_norm = np.linalg.norm(axis)
+
+            if axis_norm > 1e-8:
+              axis /= axis_norm
+
+              angle = np.degrees(np.arccos(
+                np.clip(np.dot(ref_earth_dir, -u_r), -1.0, 1.0)
+              ))
+
+              rot = pv.Transform().rotate_vector(axis, angle)
+
+              R = rot.rotation_matrix
+
+              cam.position = R @ self.ref_cam_pos
+
+            view = np.array(cam.direction)
+            earth = np.array(u_r)
+
+            right = np.cross(view, earth)
+            norm = np.linalg.norm(right)
+
+            if norm > 1e-8:
+              right /= norm
+              cam.up = np.cross(right, view)
+              cam.up /= np.linalg.norm(cam.up)
+
+        elif OPT.tracking_camera == 'Inertial':
+          # arbitrary angle, inertially fixed
+          None
+    
+    self.plotter.render()
+
+  def change_bg(self, bg):
+
+    if bg == 'Black':
+      self.bg_stars.visibility = False
+      self.plotter.background_color = 'black'
+    elif bg == 'White':
+      self.bg_stars.visibility = False
+      self.plotter.background_color = 'white'
+    elif bg == 'Stars':
+      self.bg_stars.visibility = True
+
+    # change axes labels
+    axes = self.plotter.renderer.axes_widget.GetOrientationMarker()
+    if bg == 'White':
+      self.hud_label.setStyleSheet('color: black;')
+      axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetColor(0, 0, 0)
+      axes.GetYAxisCaptionActor2D().GetCaptionTextProperty().SetColor(0, 0, 0)
+      axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(0, 0, 0)
+    else:
+      self.hud_label.setStyleSheet('color: white;')
+      axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
+      axes.GetYAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
+      axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
+
   def start_interaction_cb(self, *_):
     self.user_interacting = True
 
@@ -423,6 +468,10 @@ class MainWindow(QMainWindow):
     self.user_interacting = False
     self.ref_cam_pos = np.array(self.plotter.camera.position)
     self.ref_earth_pos = np.array(self.earth.actor.position)
+
+  def closeEvent(self, event):
+    self.plotter.close()
+    event.accept()
 
 
 def main():
