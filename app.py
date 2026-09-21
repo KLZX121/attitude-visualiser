@@ -108,8 +108,11 @@ class MainWindow(QMainWindow):
     self.plotter.close()
     event.accept()
 
-  def update_frame(self, frame):
+  def update_frame(self, frame=None):
     # simulation time
+    if not frame:
+      frame = self.frame_slider.value()
+
     t = (frame-1)*OPT.SIMULATION_TIMESTEP
     self.label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
 
@@ -306,7 +309,7 @@ class MainWindow(QMainWindow):
 
       self.eci_axes.toggle_visibility()
 
-      self.plotter.render()
+      self.update_frame()
 
     self.raxes_btn = QPushButton(
       'Hide ECI Axes' if OPT.show_eci_axes else 'Show ECI Axes',
@@ -322,10 +325,8 @@ class MainWindow(QMainWindow):
       self.baxes_btn.setText('Hide Body Axes' if OPT.show_body_axes else 'Show Body Axes')
 
       self.body_axes.toggle_visibility()
-      if OPT.show_body_axes: 
-        self.body_axes.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
 
-      self.plotter.render()
+      self.update_frame()
 
     self.baxes_btn = QPushButton(
       'Hide Body Axes' if OPT.show_body_axes else 'Show Body Axes',
@@ -344,12 +345,13 @@ class MainWindow(QMainWindow):
       self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
 
       if OPT.show_body_mesh: 
-        self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
         self.norm_btn.setEnabled(True)
+        self.force_btn.setEnabled(True)
       else:
         self.norm_btn.setEnabled(False)
+        self.force_btn.setEnabled(False)
 
-      self.plotter.render()
+      self.update_frame()
 
     self.body_mesh_btn = QPushButton(
       'Hide Satellite' if OPT.show_body_mesh else 'Show Satellite',
@@ -365,7 +367,7 @@ class MainWindow(QMainWindow):
       if hasattr(self, 'body_mesh'):
         self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
 
-      self.plotter.render()
+      self.update_frame()
 
     self.norm_btn = QPushButton(
       'Hide Norms' if OPT.show_normals else 'Show Norms',
@@ -374,9 +376,26 @@ class MainWindow(QMainWindow):
     )
     self.norm_btn.toggled.connect(toggle_norms)
 
+    # satellite forces toggle
+    def toggle_forces(is_checked):
+      OPT.show_forces = is_checked
+      self.force_btn.setText('Hide Forces' if OPT.show_forces else 'Show Forces')
+
+      if hasattr(self, 'body_mesh'):
+        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
+
+      self.update_frame()
+
+    self.force_btn = QPushButton(
+      'Hide Forces' if OPT.show_forces else 'Show Forces',
+      checkable=True,
+      enabled=OPT.show_body_mesh
+    )
+    self.force_btn.toggled.connect(toggle_forces)
+
     self.body_mesh_btn.setChecked(OPT.show_body_mesh)
     self.norm_btn.setChecked(OPT.show_normals)
-
+    self.force_btn.setChecked(OPT.show_forces)
 
     # controls ui layout
     playback_layout = QHBoxLayout()
@@ -389,6 +408,7 @@ class MainWindow(QMainWindow):
 
     toggle_layout.addWidget(self.body_mesh_btn)
     toggle_layout.addWidget(self.norm_btn)
+    toggle_layout.addWidget(self.force_btn)
 
     return toggle_layout, playback_layout
 
