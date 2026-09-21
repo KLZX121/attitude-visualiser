@@ -309,20 +309,19 @@ class MainWindow(QMainWindow):
       OPT.tracking_camera = OPT.CAM_LABELS[next_label]
       self.cam_btn.setText(OPT.tracking_camera)
 
+      self.update_frame()
+
     self.cam_btn = QPushButton(OPT.tracking_camera)
     self.cam_btn.clicked.connect(switch_cam)
 
     # ref eci axes toggle
     def toggle_raxes(is_checked):
       OPT.show_eci_axes = is_checked
-      self.raxes_btn.setText('Hide ECI Axes' if OPT.show_eci_axes else 'Show ECI Axes')
-
       self.eci_axes.toggle_visibility()
-
       self.update_frame()
 
     self.raxes_btn = QPushButton(
-      'Hide ECI Axes' if OPT.show_eci_axes else 'Show ECI Axes',
+      'ECI Axes',
       checkable=True,
       checked=OPT.show_eci_axes
     )
@@ -332,14 +331,11 @@ class MainWindow(QMainWindow):
     # body axes toggle
     def toggle_baxes(is_checked):
       OPT.show_body_axes = is_checked
-      self.baxes_btn.setText('Hide Body Axes' if OPT.show_body_axes else 'Show Body Axes')
-
       self.body_axes.toggle_visibility()
-
       self.update_frame()
 
     self.baxes_btn = QPushButton(
-      'Hide Body Axes' if OPT.show_body_axes else 'Show Body Axes',
+      'Body Axes',
       checkable=True,
       checked=OPT.show_body_axes
     )
@@ -348,8 +344,6 @@ class MainWindow(QMainWindow):
 
     # satellite body toggle
     def toggle_body_mesh(is_checked):
-      self.body_mesh_btn.setText('Hide Satellite' if is_checked else 'Show Satellite')
-
       # toggle visibility of body mesh
       OPT.show_body_mesh = is_checked
       self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
@@ -364,7 +358,7 @@ class MainWindow(QMainWindow):
       self.update_frame()
 
     self.body_mesh_btn = QPushButton(
-      'Hide Satellite' if OPT.show_body_mesh else 'Show Satellite',
+      'Satellite',
       checkable=True
     )
     self.body_mesh_btn.toggled.connect(toggle_body_mesh)
@@ -372,7 +366,6 @@ class MainWindow(QMainWindow):
     # satellite normals toggle
     def toggle_norms(is_checked):
       OPT.show_normals = is_checked
-      self.norm_btn.setText('Hide Norms' if OPT.show_normals else 'Show Norms')
 
       if hasattr(self, 'body_mesh'):
         self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
@@ -380,7 +373,7 @@ class MainWindow(QMainWindow):
       self.update_frame()
 
     self.norm_btn = QPushButton(
-      'Hide Norms' if OPT.show_normals else 'Show Norms',
+      'Normals',
       checkable=True,
       enabled=OPT.show_body_mesh
     )
@@ -389,7 +382,6 @@ class MainWindow(QMainWindow):
     # satellite forces toggle
     def toggle_forces(is_checked):
       OPT.show_forces = is_checked
-      self.force_btn.setText('Hide Forces' if OPT.show_forces else 'Show Forces')
 
       if hasattr(self, 'body_mesh'):
         self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
@@ -397,7 +389,7 @@ class MainWindow(QMainWindow):
       self.update_frame()
 
     self.force_btn = QPushButton(
-      'Hide Forces' if OPT.show_forces else 'Show Forces',
+      'Forces',
       checkable=True,
       enabled=OPT.show_body_mesh
     )
@@ -424,10 +416,10 @@ class MainWindow(QMainWindow):
 
     return toggle_layout, playback_layout
 
-  def start_interaction_cb(self, *args):
+  def start_interaction_cb(self, *_):
     self.user_interacting = True
 
-  def end_interaction_cb(self, *args):
+  def end_interaction_cb(self, *_):
     self.user_interacting = False
     self.ref_cam_pos = np.array(self.plotter.camera.position)
     self.ref_earth_pos = np.array(self.earth.actor.position)
