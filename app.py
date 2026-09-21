@@ -48,8 +48,8 @@ class OPT:
 
   # whether the camera should track the satellite over its orbit
   # the camera angle to use for tracking
-  # None | 'down' | 'forward' | 'side' | 'free (o)' | 'free (i)'
-  tracking_camera: str = 'free (o)'
+  CAM_LABELS = ['Free', 'Down', 'Forward', 'Side', 'Orbital', 'Inertial']
+  tracking_camera: str = 'Free'
 
   show_eci_axes: bool = False
   show_body_axes: bool = False
@@ -64,7 +64,6 @@ class OPT:
 
 #TODO: visualise torques
 #TODO: add incremental playback (frame by frame)
-#TODO: add camera tracking settings
 #TODO: add orientation of earth
 #TODO: add sun
 #TODO: add export option (and settings)
@@ -114,7 +113,7 @@ class MainWindow(QMainWindow):
       frame = self.frame_slider.value()
 
     t = (frame-1)*OPT.SIMULATION_TIMESTEP
-    self.label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
+    self.hud_label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
 
     dcm = self.dcm_list[frame-1]
 
@@ -143,23 +142,23 @@ class MainWindow(QMainWindow):
         self.earth.update_position(r)
 
       # use camera tracking
-      if OPT.tracking_camera:
+      if not OPT.tracking_camera == 'Free':
         cam = self.plotter.camera
         cam.focal_point = (0, 0, 0)
 
-        if OPT.tracking_camera == 'down':
+        if OPT.tracking_camera == 'Down':
           # motion towards top of screen
           cam.position = -self.earth.u * 2
           cam.up = u_v
-        elif OPT.tracking_camera == 'forward':
+        elif OPT.tracking_camera == 'Forward':
           # motion into screen
           cam.position = -u_v * 2 + u_r * 0.8
           cam.up = u_r
-        elif OPT.tracking_camera == 'side':
+        elif OPT.tracking_camera == 'Side':
           # motion towards right of screen
           cam.position = np.cross(u_v, u_r) * 2
           cam.up = u_r
-        elif OPT.tracking_camera == 'free (o)' and not self.user_interacting:
+        elif OPT.tracking_camera == 'Orbital' and not self.user_interacting:
           # arbitrary angle, fixed to orbital frame
           if hasattr(self, 'ref_cam_pos'):
             ref_earth_dir = self.ref_earth_pos / np.linalg.norm(self.ref_earth_pos)
@@ -191,7 +190,7 @@ class MainWindow(QMainWindow):
               cam.up = np.cross(right, view)
               cam.up /= np.linalg.norm(cam.up)
 
-        elif OPT.tracking_camera == 'free (i)':
+        elif OPT.tracking_camera == 'Inertial':
           # arbitrary angle, inertially fixed
           None
     
@@ -254,9 +253,9 @@ class MainWindow(QMainWindow):
     container = QVBoxLayout(plotter_widget)
     container.addWidget(self.plotter.interactor)
 
-    self.label = QLabel('', plotter_widget)
-    self.label.setStyleSheet('color: black;')
-    self.label.move(20, 20)
+    self.hud_label = QLabel('', plotter_widget)
+    self.hud_label.setStyleSheet('color: black;')
+    self.hud_label.move(20, 20)
     self.raise_()
 
     return plotter_widget
@@ -301,6 +300,17 @@ class MainWindow(QMainWindow):
     self.timer.timeout.connect(timer_callback)
     self.timer.start(OPT.TIMER_INT)
 
+
+    # camera tracking mode
+    def switch_cam(*_):
+      curr_label = self.cam_btn.text()
+      next_label = (OPT.CAM_LABELS.index(curr_label) + 1) % len(OPT.CAM_LABELS)
+
+      OPT.tracking_camera = OPT.CAM_LABELS[next_label]
+      self.cam_btn.setText(OPT.tracking_camera)
+
+    self.cam_btn = QPushButton(OPT.tracking_camera)
+    self.cam_btn.clicked.connect(switch_cam)
 
     # ref eci axes toggle
     def toggle_raxes(is_checked):
@@ -403,12 +413,14 @@ class MainWindow(QMainWindow):
     playback_layout.addWidget(self.frame_slider)
 
     toggle_layout = QHBoxLayout()
-    toggle_layout.addWidget(self.raxes_btn)
-    toggle_layout.addWidget(self.baxes_btn)
-
-    toggle_layout.addWidget(self.body_mesh_btn)
-    toggle_layout.addWidget(self.norm_btn)
-    toggle_layout.addWidget(self.force_btn)
+    toggle_layout.addWidget(QLabel('Camera:'), 1)
+    toggle_layout.addWidget(self.cam_btn, 2)
+    toggle_layout.addWidget(QLabel('Toggles:'), 1)
+    toggle_layout.addWidget(self.raxes_btn, 2)
+    toggle_layout.addWidget(self.baxes_btn, 2)
+    toggle_layout.addWidget(self.body_mesh_btn, 2)
+    toggle_layout.addWidget(self.norm_btn, 1)
+    toggle_layout.addWidget(self.force_btn, 1)
 
     return toggle_layout, playback_layout
 
