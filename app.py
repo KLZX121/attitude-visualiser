@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from helpers import *
 
 from pyvistaqt import QtInteractor
-from qtpy.QtCore import Qt, QTimer, QSignalBlocker
+from qtpy.QtCore import Qt, QTimer
 from qtpy.QtWidgets import (
   QApplication,
   QMainWindow,
@@ -14,7 +14,7 @@ from qtpy.QtWidgets import (
   QLabel,
   QVBoxLayout,
   QHBoxLayout,
-  QWidget,
+  QWidget
 )
 
 @dataclass
@@ -40,15 +40,16 @@ class OPT:
   WINDOW_SIZE: tuple[int, int] = (800, 600)
 
   autoplay: bool = False
-  LOOP_PLAYBACK: bool = True
+  loop_playback: bool = True
   # how many frames to increment each playback step
-  PLAYBACK_SPEED: int = 5
+  SPEEDS = [1, 2, 5, 10, 20]
+  playback_speed: int = 5
   # how often (ms) that a playback step occurs (17ms = 1/(60fps))
   TIMER_INT: int = 17
 
   # whether the camera should track the satellite over its orbit
   # the camera angle to use for tracking
-  CAM_LABELS = ['Free', 'Orbital', 'Down', 'Forward', 'Side', 'Inertial']
+  CAM_LABELS = ['Orbital', 'Inertial', 'Down', 'Forward', 'Side', 'Free']
   tracking_camera: str = 'Orbital'
 
   # background image/skybox
@@ -67,7 +68,6 @@ class OPT:
   show_earth: bool = True
 
 #TODO: visualise torques
-#TODO: add incremental playback (frame by frame)
 #TODO: add orientation of earth
 #TODO: add sun
 #TODO: add export option (and settings)
@@ -190,6 +190,22 @@ class MainWindow(QMainWindow):
     self.play_button = QPushButton('Pause' if OPT.autoplay else 'Play', checkable=True, checked=OPT.autoplay)
     self.play_button.toggled.connect(toggle_play)
 
+    # toggle playback looping
+    def toggle_loop(is_checked):
+      OPT.loop_playback = is_checked
+    self.loop_btn = QPushButton('Loop', checkable=True, checked=OPT.loop_playback)
+    self.loop_btn.toggled.connect(toggle_loop)
+
+    # playback speed
+    def set_playback_speed(*_):
+      curr_speed = int(self.speed_btn.text()[:-1])
+      next_speed_i = (OPT.SPEEDS.index(curr_speed) + 1) % len(OPT.SPEEDS)
+
+      OPT.playback_speed = OPT.SPEEDS[next_speed_i]
+
+      self.speed_btn.setText(f'{OPT.playback_speed}x')
+    self.speed_btn = QPushButton(f'{OPT.playback_speed}x')
+    self.speed_btn.clicked.connect(set_playback_speed)
 
     # playback slider
     self.update_frame(1)
@@ -197,26 +213,37 @@ class MainWindow(QMainWindow):
     self.frame_slider.setRange(1, self.N_FRAMES)
     self.frame_slider.valueChanged.connect(self.update_frame)
 
-
-    # autoplay functionality
-    def timer_callback():
-      if not OPT.autoplay:
+    # step frames:
+    def step_frame(is_timer, frame_increment):
+      if is_timer and not OPT.autoplay:
         return
       
       current_frame = self.frame_slider.value()
   
-      next_frame = current_frame + OPT.PLAYBACK_SPEED
-      if OPT.LOOP_PLAYBACK:
-        next_frame = (current_frame % self.N_FRAMES) + OPT.PLAYBACK_SPEED
-      elif next_frame >= self.N_FRAMES:
-        return
-  
-      self.frame_slider.setValue(next_frame)
-    
-    self.timer = QTimer(self)
-    self.timer.timeout.connect(timer_callback)
-    self.timer.start(OPT.TIMER_INT)
+      next_frame = current_frame + frame_increment
+      if OPT.loop_playback:
+        next_frame = next_frame % self.N_FRAMES
 
+        if next_frame < 1:
+          next_frame = self.N_FRAMES
+
+      elif next_frame > self.N_FRAMES:
+        next_frame = self.N_FRAMES
+        self.play_button.toggle()
+
+      self.frame_slider.setValue(next_frame)
+
+    self.step_pos_btn = QPushButton('>')
+    self.step_neg_btn = QPushButton('<')
+    self.step_pos_btn.clicked.connect(lambda: step_frame(False, OPT.playback_speed))
+    self.step_neg_btn.clicked.connect(lambda: step_frame(False, -OPT.playback_speed))
+    self.step_pos_btn.setFixedWidth(30)
+    self.step_neg_btn.setFixedWidth(30)
+
+    # autoplay functionality
+    self.timer = QTimer(self)
+    self.timer.timeout.connect(lambda: step_frame(True, OPT.playback_speed))
+    self.timer.start(OPT.TIMER_INT)
 
     # camera tracking mode
     def switch_cam(*_):
@@ -257,7 +284,6 @@ class MainWindow(QMainWindow):
       OPT.show_eci_axes = is_checked
       self.eci_axes.toggle_visibility()
       self.update_frame()
-
     self.raxes_btn = QPushButton(
       'ECI Axes',
       checkable=True,
@@ -265,13 +291,11 @@ class MainWindow(QMainWindow):
     )
     self.raxes_btn.toggled.connect(toggle_raxes)
 
-
     # body axes toggle
     def toggle_baxes(is_checked):
       OPT.show_body_axes = is_checked
       self.body_axes.toggle_visibility()
       self.update_frame()
-
     self.baxes_btn = QPushButton(
       'Body Axes',
       checkable=True,
@@ -279,10 +303,8 @@ class MainWindow(QMainWindow):
     )
     self.baxes_btn.toggled.connect(toggle_baxes)
 
-
     # satellite body toggle
     def toggle_body_mesh(is_checked):
-      # toggle visibility of body mesh
       OPT.show_body_mesh = is_checked
       self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
 
@@ -294,7 +316,6 @@ class MainWindow(QMainWindow):
         self.force_btn.setEnabled(False)
 
       self.update_frame()
-
     self.body_mesh_btn = QPushButton(
       'Satellite',
       checkable=True
@@ -309,7 +330,6 @@ class MainWindow(QMainWindow):
         self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
 
       self.update_frame()
-
     self.norm_btn = QPushButton(
       'Normals',
       checkable=True,
@@ -325,7 +345,6 @@ class MainWindow(QMainWindow):
         self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
 
       self.update_frame()
-
     self.force_btn = QPushButton(
       'Forces',
       checkable=True,
@@ -340,6 +359,10 @@ class MainWindow(QMainWindow):
     # controls ui layout
     playback_layout = QHBoxLayout()
     playback_layout.addWidget(self.play_button)
+    playback_layout.addWidget(self.loop_btn)
+    playback_layout.addWidget(self.speed_btn)
+    playback_layout.addWidget(self.step_neg_btn)
+    playback_layout.addWidget(self.step_pos_btn)
     playback_layout.addWidget(self.frame_slider)
 
     toggle_layout = QHBoxLayout()
@@ -354,6 +377,7 @@ class MainWindow(QMainWindow):
     toggle_layout.addWidget(self.body_mesh_btn, 2)
     toggle_layout.addWidget(self.norm_btn, 1)
     toggle_layout.addWidget(self.force_btn, 1)
+    toggle_layout.addStretch(100)
 
     return toggle_layout, playback_layout
 
