@@ -244,6 +244,14 @@ class MainWindow(QMainWindow):
     self.bg_btn = QPushButton(OPT.background)
     self.bg_btn.clicked.connect(switch_bg)
 
+    # earth toggle
+    def toggle_earth(is_checked):
+      OPT.show_earth = is_checked
+      self.earth.toggle_visibility()
+      self.update_frame()
+    self.earth_btn = QPushButton('Earth', checkable=True, checked=OPT.show_earth)
+    self.earth_btn.toggled.connect(toggle_earth)
+
     # ref eci axes toggle
     def toggle_raxes(is_checked):
       OPT.show_eci_axes = is_checked
@@ -336,10 +344,11 @@ class MainWindow(QMainWindow):
 
     toggle_layout = QHBoxLayout()
     toggle_layout.addWidget(QLabel('Camera:'), 1)
-    toggle_layout.addWidget(self.cam_btn, 3)
+    toggle_layout.addWidget(self.cam_btn, 2)
     toggle_layout.addWidget(QLabel('Background:'), 1)
     toggle_layout.addWidget(self.bg_btn, 2)
     toggle_layout.addWidget(QLabel('Toggles:'), 1)
+    toggle_layout.addWidget(self.earth_btn, 2)
     toggle_layout.addWidget(self.raxes_btn, 2)
     toggle_layout.addWidget(self.baxes_btn, 2)
     toggle_layout.addWidget(self.body_mesh_btn, 2)
