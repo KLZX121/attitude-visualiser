@@ -51,7 +51,7 @@ class OPT:
   # None | 'down' | 'forward' | 'side' | 'free (o)' | 'free (i)'
   tracking_camera: str = 'free (o)'
 
-  show_eci_axes: bool = True
+  show_eci_axes: bool = False
   show_body_axes: bool = False
 
   FORCES_AVAILABLE: bool = False
@@ -157,22 +157,17 @@ class MainWindow(QMainWindow):
         elif OPT.tracking_camera == 'free (o)':
           # arbitrary angle, fixed to orbital frame
           if hasattr(self, 'ref_cam_pos'):
-            curr_earth_pos = self.earth.actor.position
-            curr_earth_dir = curr_earth_pos / np.linalg.norm(curr_earth_pos)
-
             ref_earth_dir = self.ref_earth_pos / np.linalg.norm(self.ref_earth_pos)
 
-            axis = np.cross(ref_earth_dir, curr_earth_dir)
+            axis = np.cross(ref_earth_dir, -u_r)
             axis_norm = np.linalg.norm(axis)
 
             if axis_norm > 1e-8:
               axis /= axis_norm
 
-              angle = np.degrees(
-                np.arccos(
-                  np.clip(np.dot(ref_earth_dir, curr_earth_dir), -1.0, 1.0)
-                )
-              )
+              angle = np.degrees(np.arccos(
+                np.clip(np.dot(ref_earth_dir, -u_r), -1.0, 1.0)
+              ))
 
               rot = pv.Transform().rotate_vector(axis, angle)
 
@@ -194,9 +189,6 @@ class MainWindow(QMainWindow):
         elif OPT.tracking_camera == 'free (i)':
           # arbitrary angle, inertially fixed
           None
-          
-          
-
     
     self.plotter.render()
 
@@ -218,6 +210,18 @@ class MainWindow(QMainWindow):
 
     # plot satellite com
     self.plotter.add_mesh(pv.Sphere(radius=OPT.GEOMETRY_SCALE*0.05), color='grey')
+
+    # plot satellite body
+    if OPT.FILEPATH_GEOMETRY:
+      geometry_data = read_geometry_data(OPT.FILEPATH_GEOMETRY)
+
+      self.geometry_data = geometry_data
+              
+      self.body_mesh = Body(self.geometry_data)
+      self.body_mesh.setup(self.plotter, OPT.show_normals, OPT.FORCES_AVAILABLE, OPT.show_forces)
+
+      if not OPT.show_body_mesh:
+        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
 
     # plot earth
     if OPT.I_R:
@@ -333,37 +337,15 @@ class MainWindow(QMainWindow):
     def toggle_body_mesh(is_checked):
       self.body_mesh_btn.setText('Hide Satellite' if is_checked else 'Show Satellite')
 
-      # TODO: move this to general function outside of control setup
-      if not hasattr(self, 'geometry_data'):
-        # initialise body mesh
-        geometry_data = read_geometry_data(OPT.FILEPATH_GEOMETRY)
-        if not geometry_data:
-          with QSignalBlocker(self.body_mesh_btn):
-            self.body_mesh_btn.setChecked(False)
+      # toggle visibility of body mesh
+      OPT.show_body_mesh = is_checked
+      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
 
-          self.body_mesh_btn.setText('Show Satellite')
-          return
-
-        OPT.show_body_mesh = True
-        self.geometry_data = geometry_data
-        
-        self.body_mesh = Body(self.geometry_data)
-        self.body_mesh.setup(self.plotter, OPT.show_normals, OPT.FORCES_AVAILABLE, OPT.show_forces)
-
+      if OPT.show_body_mesh: 
         self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
-
         self.norm_btn.setEnabled(True)
-
       else:
-        # toggle visibility of body mesh
-        OPT.show_body_mesh = is_checked
-        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
-
-        if OPT.show_body_mesh: 
-          self.body_mesh.rotate_mesh(self.dcm_list[self.frame_slider.value()-1])
-          self.norm_btn.setEnabled(True)
-        else:
-          self.norm_btn.setEnabled(False)
+        self.norm_btn.setEnabled(False)
 
       self.plotter.render()
 
