@@ -383,9 +383,11 @@ class MainWindow(QMainWindow):
     )
     self.force_btn.toggled.connect(toggle_forces)
 
-    self.body_mesh_btn.setChecked(OPT.show_body_mesh)
-    self.norm_btn.setChecked(OPT.show_normals)
-    self.force_btn.setChecked(OPT.show_forces)
+    if OPT.GEOMETRY_AVAILABLE:
+      self.body_mesh_btn.setChecked(OPT.show_body_mesh)
+      self.norm_btn.setChecked(OPT.show_normals)
+      if OPT.FORCES_AVAILABLE:
+        self.force_btn.setChecked(OPT.show_forces)
 
     # controls ui layout
     playback_layout = QHBoxLayout()
@@ -402,13 +404,17 @@ class MainWindow(QMainWindow):
     toggle_layout.addWidget(QLabel('Background:'), 1)
     toggle_layout.addWidget(self.bg_btn, 2)
     toggle_layout.addWidget(QLabel('Toggles:'), 1)
-    toggle_layout.addWidget(self.earth_btn, 2)
-    toggle_layout.addWidget(self.sun_btn, 2)
+    if OPT.EARTH_AVAILABLE:
+      toggle_layout.addWidget(self.earth_btn, 2)
+    if OPT.SUN_AVAILABLE:
+      toggle_layout.addWidget(self.sun_btn, 2)
     toggle_layout.addWidget(self.raxes_btn, 2)
     toggle_layout.addWidget(self.baxes_btn, 2)
-    toggle_layout.addWidget(self.body_mesh_btn, 2)
-    toggle_layout.addWidget(self.norm_btn, 1)
-    toggle_layout.addWidget(self.force_btn, 1)
+    if OPT.GEOMETRY_AVAILABLE:
+      toggle_layout.addWidget(self.body_mesh_btn, 2)
+      toggle_layout.addWidget(self.norm_btn, 1)
+    if OPT.FORCES_AVAILABLE:
+      toggle_layout.addWidget(self.force_btn, 1)
     toggle_layout.addStretch(100)
 
     return toggle_layout, playback_layout
