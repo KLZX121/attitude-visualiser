@@ -4,7 +4,7 @@ import json
 
 from types import SimpleNamespace
 
-def read_state_data(filepath, i_q, i_r, i_v):
+def read_state_data(filepath, i_q, i_r, i_v) -> tuple[list[float], list[float], list[float]]:
   # formatted as a n(t) x n(x) json
   x_list = []
   with open(filepath, 'r') as f:
@@ -25,12 +25,12 @@ def read_state_data(filepath, i_q, i_r, i_v):
     dcm_list.append(dcm)
 
     # orbital position (ECI)
-    if i_r:
+    if i_r and max(i_r) <= len(x):
       r = x[i_r[0]:i_r[1]]
       r_list.append(r)
 
     # orbital velocity (ECI)
-    if i_v:
+    if i_v and max(i_v) <= len(x):
       v =x[i_v[0]:i_v[1]]
       v_list.append(v)
 
@@ -55,14 +55,28 @@ def read_geometry_data(filepath, return_type=None) -> np.ndarray | SimpleNamespa
         return data
   except FileNotFoundError:
     print(f'The file \'{filepath}\' could not be found. Make sure your file is named and placed correctly.')
-    return None
+
+  return None
 
 def read_surface_data(filepath) -> SimpleNamespace:
-  data = {}
-  with open(filepath, 'r') as f:
-    data = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+  try:
+    with open(filepath, 'r') as f:
+      data = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
+      return data
+  except FileNotFoundError:
+    print(f'The file \'{filepath}\' could not be found. Make sure your file is named and placed correctly.')
 
-  return data
+  return None
+
+def read_r_sun_data(filepath) -> list[list[float]]:
+  try:
+    with open(filepath, 'r') as f:
+      data = json.load(f)
+      return data
+  except FileNotFoundError:
+    print(f'The file \'{filepath}\' could not be found. Make sure your file is named and placed correctly.')
+    
+  return None
 
 
 class Axes:
@@ -77,7 +91,14 @@ class Axes:
   def setup(self, basis_vecs, scale, plotter) -> None:
     for i in range(3):
       arrow = pv.Arrow(direction=basis_vecs[i], shaft_radius=0.04, tip_length=0.2, scale=scale)
-      self.arrow_actor[i] = plotter.add_mesh(arrow, color=self.cols[i], label=self.labels[i], opacity=self.opacity, name=f'{self.frame_name}_{i}')
+      self.arrow_actor[i] = plotter.add_mesh(
+        arrow, 
+        color=self.cols[i], 
+        label=self.labels[i], 
+        opacity=self.opacity, 
+        name=f'{self.frame_name}_{i}',
+        lighting=False
+      )
 
   def rotate_mesh(self, A):  
     # rotate using transpose of attitude (body -> ref)
@@ -104,10 +125,16 @@ class Body:
       surface_mesh = vertices.delaunay_2d()
 
       mesh_col = None
-      if 'panel' in surface_obj.name or 'x_pos' in surface_obj.name:
-        mesh_col = 'yellow'
+      """ if 'x_pos' in surface_obj.name:
+        mesh_col = 'yellow' """
       
-      surf_actor = plotter.add_mesh(surface_mesh, color=mesh_col)
+      surf_actor = plotter.add_mesh(
+        surface_mesh,
+        color=mesh_col,
+        ambient=0.05,
+        diffuse=0.8,
+        specular=0.5,
+      )
       self.surf_actors.append(surf_actor)
 
       """
@@ -125,14 +152,14 @@ class Body:
       elif '_z_' in surface_obj.name:
         arrow_col = 'blue'
         
-      norm_actor = plotter.add_mesh(normal_mesh, color=arrow_col)
+      norm_actor = plotter.add_mesh(normal_mesh, color=arrow_col, lighting=False)
       self.norm_actors.append(norm_actor)
       norm_actor.visibility = show_normals
 
       # surface force actors
       if add_force_actors:
         force_mesh = pv.Arrow(start=(-1, 0, 0), direction=(1, 0, 0), tip_resolution=10, shaft_resolution=10)
-        force_actor = plotter.add_mesh(force_mesh, color='red')
+        force_actor = plotter.add_mesh(force_mesh, color='red', lighting=False)
         force_actor.scale = 0
         self.force_actors.append(force_actor)
         force_actor.visibility = show_forces
@@ -180,23 +207,81 @@ class Earth:
   def __init__(self):
     self.actor = None
 
-  def setup(self, r, radius, plotter):
+  def setup(self, r, dist, radius, plotter):
     self.radius = radius
 
     earth_mesh = pv.examples.planets.load_planet(radius=self.radius)
     earth_texture = pv.examples.load_globe_texture()
 
-    self.actor = plotter.add_mesh(earth_mesh, texture=earth_texture)
-    self.update_position(r)
+    self.actor = plotter.add_mesh(
+      earth_mesh,
+      texture=earth_texture,
+      smooth_shading=True,
+      ambient=0.1
+    )
+    self.update_position(r, dist)
 
-  def update_position(self, r):
+  def update_position(self, r, dist):
     # r is eci -> satellite
     # convert to unit direction and transform to satellite -> eci
     self.u = -r / np.linalg.norm(r)
-    self.actor.position = self.u*self.radius*1.2
+    self.actor.position = self.u*self.radius*dist
 
   def toggle_visibility(self):
     self.actor.visibility = not self.actor.visibility
+
+
+class Sun:
+  def __init__(self):
+    self.actor = None
+    self.sun_light = None
+
+  def setup(self, r, dist, radius, plotter):
+    self.radius = radius
+    sun_mesh = pv.examples.planets.load_planet(radius=self.radius)
+    self.actor = plotter.add_mesh(sun_mesh, color='yellow', lighting=False)
+
+    # add lighting
+    self.sun_light = pv.Light(
+      position=self.actor.position,
+      focal_point=(0, 0, 0),
+      light_type='scenelight',
+      intensity=1,
+    )
+
+    plotter.add_light(self.sun_light)
+
+    self.update_position(r, dist)
+    self.set_scene_lights(plotter)
+
+  def update_position(self, r, dist):
+    # r is satellite -> sun
+    # convert to unit direction
+    self.u = r / np.linalg.norm(r)
+    self.actor.position = self.u*self.radius*dist
+
+    self.sun_light.position = self.actor.position
+
+  def toggle_visibility(self, plotter):
+    self.actor.visibility = not self.actor.visibility
+
+    # toggle sun lighting
+    if self.actor.visibility:
+      self.sun_light.switch_on()
+    else:
+      self.sun_light.switch_off()
+
+    self.set_scene_lights(plotter)
+
+  def set_scene_lights(self, plotter):
+    # turn off scene lights if sun is lighting
+    for light in plotter.renderer.lights:
+      if light is not self.sun_light:
+        if self.actor.visibility:
+          light.switch_off()
+        else:
+          light.switch_on()
+        
 
 
 def q_to_dcm(q):

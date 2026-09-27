@@ -22,6 +22,12 @@ class OPT:
   FILEPATH_STATE: str = 'xdata.json'
   FILEPATH_GEOMETRY: str = 'geometry.json'
   FILEPATH_SURFACE_FORCES: str = 'surfdata.json'
+  FILEPATH_SUN_POS: str = 'rs.json'
+
+  EARTH_AVAILABLE: bool = False
+  GEOMETRY_AVAILABLE: bool = False
+  FORCES_AVAILABLE: bool = False
+  SUN_AVAILABLE: bool = False
 
   # simulation stepsize (dt)
   SIMULATION_TIMESTEP: int = 1
@@ -32,8 +38,11 @@ class OPT:
 
   # roughly longest length of satellite, used to resize axes and earth
   GEOMETRY_SCALE: float = 0.3
-  # how much bigger the earth is compared to the satellite
+  # how much bigger the earth/sun is compared to the satellite
   EARTH_SIZE: float = 10
+  EARTH_DISTANCE: float = 1.2
+  SUN_SIZE: float = 1
+  SUN_DISTANCE: float = 100
   # order of magnitude of forces
   FORCE_SCALE: float = 0.15*10**5
   
@@ -59,13 +68,12 @@ class OPT:
   show_eci_axes: bool = False
   show_body_axes: bool = False
 
-  FORCES_AVAILABLE: bool = False
-
   show_body_mesh: bool = True
   show_normals: bool = False
   show_forces: bool = True
 
   show_earth: bool = True
+  show_sun: bool = True
 
 #TODO: visualise torques
 #TODO: add orientation of earth
@@ -87,9 +95,20 @@ class MainWindow(QMainWindow):
     self.dcm_list, self.r_list, self.v_list = read_state_data(OPT.FILEPATH_STATE, OPT.I_Q, OPT.I_R, OPT.I_V)
     self.N_FRAMES = len(self.dcm_list)
 
+    if self.r_list and self.v_list:
+      OPT.EARTH_AVAILABLE = True
+
     self.surface_forces = read_surface_data(OPT.FILEPATH_SURFACE_FORCES)
     if self.surface_forces:
       OPT.FORCES_AVAILABLE = True
+
+    self.geometry_data = read_geometry_data(OPT.FILEPATH_GEOMETRY)
+    if self.geometry_data:
+      OPT.GEOMETRY_AVAILABLE = True
+
+    self.r_sun_list = read_r_sun_data(OPT.FILEPATH_SUN_POS)
+    if self.r_sun_list:
+      OPT.SUN_AVAILABLE = True
 
     # create central widget and layout
     central_widget = QWidget()
@@ -127,11 +146,7 @@ class MainWindow(QMainWindow):
     self.plotter.add_mesh(pv.Sphere(radius=OPT.GEOMETRY_SCALE*0.05), color='grey')
 
     # plot satellite body
-    if OPT.FILEPATH_GEOMETRY:
-      geometry_data = read_geometry_data(OPT.FILEPATH_GEOMETRY)
-
-      self.geometry_data = geometry_data
-              
+    if OPT.GEOMETRY_AVAILABLE:              
       self.body_mesh = Body(self.geometry_data)
       self.body_mesh.setup(self.plotter, OPT.show_normals, OPT.FORCES_AVAILABLE, OPT.show_forces)
 
@@ -139,9 +154,9 @@ class MainWindow(QMainWindow):
         self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
 
     # plot earth
-    if OPT.I_R:
+    if OPT.EARTH_AVAILABLE:
       self.earth = Earth()
-      self.earth.setup(self.r_list[0], OPT.GEOMETRY_SCALE*OPT.EARTH_SIZE, self.plotter)
+      self.earth.setup(self.r_list[0], OPT.EARTH_DISTANCE, OPT.GEOMETRY_SCALE*OPT.EARTH_SIZE, self.plotter)
       if not OPT.show_earth:
         self.earth.toggle_visibility()
 
@@ -155,6 +170,14 @@ class MainWindow(QMainWindow):
         "EndInteractionEvent",
         self.end_interaction_cb
       )
+
+    # plot sun
+    if OPT.SUN_AVAILABLE:
+      self.sun = Sun()
+      self.sun.setup(self.r_sun_list[0], OPT.SUN_DISTANCE, OPT.GEOMETRY_SCALE*OPT.SUN_SIZE, self.plotter)
+
+      if not OPT.show_sun:
+        self.sun.toggle_visibility(self.plotter)
 
     # 16k starry skybox (Stars)
     skybox_texture = pv.examples.download_cubemap_space_16k().to_skybox()
@@ -279,6 +302,14 @@ class MainWindow(QMainWindow):
     self.earth_btn = QPushButton('Earth', checkable=True, checked=OPT.show_earth)
     self.earth_btn.toggled.connect(toggle_earth)
 
+    # sun toggle
+    def toggle_sun(is_checked):
+      OPT.show_sun = is_checked
+      self.sun.toggle_visibility(self.plotter)
+      self.update_frame()
+    self.sun_btn = QPushButton('Sun', checkable=True, checked=OPT.show_sun)
+    self.sun_btn.toggled.connect(toggle_sun)
+
     # ref eci axes toggle
     def toggle_raxes(is_checked):
       OPT.show_eci_axes = is_checked
@@ -372,6 +403,7 @@ class MainWindow(QMainWindow):
     toggle_layout.addWidget(self.bg_btn, 2)
     toggle_layout.addWidget(QLabel('Toggles:'), 1)
     toggle_layout.addWidget(self.earth_btn, 2)
+    toggle_layout.addWidget(self.sun_btn, 2)
     toggle_layout.addWidget(self.raxes_btn, 2)
     toggle_layout.addWidget(self.baxes_btn, 2)
     toggle_layout.addWidget(self.body_mesh_btn, 2)
@@ -396,15 +428,15 @@ class MainWindow(QMainWindow):
       self.body_axes.rotate_mesh(dcm)
 
     # update satellite body orientation
-    if OPT.show_body_mesh and hasattr(self, 'body_mesh'):
+    if OPT.GEOMETRY_AVAILABLE and OPT.show_body_mesh:
       self.body_mesh.rotate_mesh(dcm)
 
       # update surface forces
-      if OPT.show_forces:
+      if OPT.FORCES_AVAILABLE and OPT.show_forces:
         self.body_mesh.update_forces(self.surface_forces[frame-1], dcm, OPT.FORCE_SCALE)
       
 
-    if self.r_list and self.v_list:
+    if OPT.EARTH_AVAILABLE:
       r = self.r_list[frame-1]
       v = self.v_list[frame-1]
 
@@ -413,7 +445,7 @@ class MainWindow(QMainWindow):
 
       # update earth position
       if OPT.show_earth:
-        self.earth.update_position(r)
+        self.earth.update_position(r, OPT.EARTH_DISTANCE)
 
       # use camera tracking
       if not OPT.tracking_camera == 'Free':
@@ -467,11 +499,14 @@ class MainWindow(QMainWindow):
         elif OPT.tracking_camera == 'Inertial':
           # arbitrary angle, inertially fixed
           None
+
+    if OPT.SUN_AVAILABLE and OPT.show_sun:
+      r_s = self.r_sun_list[frame-1]
+      self.sun.update_position(r_s, OPT.SUN_DISTANCE)
     
     self.plotter.render()
 
   def change_bg(self, bg):
-
     if bg == 'Black':
       self.bg_stars.visibility = False
       self.plotter.background_color = 'black'
