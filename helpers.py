@@ -104,29 +104,59 @@ class Axes:
     self.labels = labels
     self.opacity = opacity
 
-    self.arrow_actor = [None, None, None]
+    self.arrow_actors = [None, None, None]
+    self.label_actor = None
    
   def setup(self, basis_vecs, scale, plotter) -> None:
     for i in range(3):
       arrow = pv.Arrow(direction=basis_vecs[i], shaft_radius=0.04, tip_length=0.2, scale=scale)
-      self.arrow_actor[i] = plotter.add_mesh(
+      self.arrow_actors[i] = plotter.add_mesh(
         arrow, 
         color=self.cols[i], 
         label=self.labels[i], 
         opacity=self.opacity, 
-        name=f'{self.frame_name}_{i}',
+        name=f'{self.frame_name}_{self.labels[i]}',
         ambient=0.5,
         diffuse=0.5
       )
 
-  def rotate_mesh(self, A):  
+    # create axes labels
+    self.label_points_local = (scale * basis_vecs)*1.1
+    self.label_points = pv.PolyData(self.label_points_local.copy())
+    self.label_points.point_data["label"] = [
+      actor.name for actor in self.arrow_actors
+    ]
+    self.label_actor = plotter.add_point_labels(
+      points=self.label_points,
+      labels="label",
+      show_points=False,
+      shape_opacity=0,
+      font_family='courier',
+      font_size=int(scale*50),
+      background_color='white',
+      background_opacity=0.2,
+      justification_horizontal='center',
+      justification_vertical='center'
+    )
+
+  def rotate_mesh(self, A, show_labels): 
     # rotate using transpose of attitude (body -> ref)
     for i in range(3):
-      self.arrow_actor[i].rotation_from(A.T)
+      self.arrow_actors[i].rotation_from(A.T)
 
-  def toggle_visibility(self):
-    for actor in self.arrow_actor:
-      actor.visibility = not actor.visibility
+    # positions of arrow tips for placing labels
+    if show_labels:
+      tip_pts = (A @ self.label_points_local.T)
+      self.label_points.points = tip_pts
+
+  def toggle_visibility(self, show_axes, show_labels):
+    for actor in self.arrow_actors:
+      actor.visibility = show_axes
+
+    if show_axes:
+      self.label_actor.visibility = show_labels
+    else:
+      self.label_actor.visibility = False
 
 class Body:
   def __init__(self, geometry):
@@ -155,12 +185,6 @@ class Body:
         specular=0.5,
       )
       self.surf_actors.append(surf_actor)
-
-      """
-      centroid_mesh = pv.Sphere(radius=0.003, center=surface_obj.centroid)
-      cent_actor =  plotter.add_mesh(centroid_mesh, color='white')
-      self.norm_actors.append(cent_actor)
-      """
 
       normal_mesh = pv.Arrow(start=surface_obj.centroid, direction=surface_obj.normal, scale=0.03)
       arrow_col = None
@@ -196,7 +220,6 @@ class Body:
         actor.visibility = False
       else:
         actor.visibility = show_forces
-
 
   def rotate_mesh(self, dcm):
     for actor in self.surf_actors + self.norm_actors + self.force_actors:

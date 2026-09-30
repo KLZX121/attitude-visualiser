@@ -68,6 +68,7 @@ class OPT:
   show_eci_axes: bool = False
   show_body_axes: bool = False
   show_lvlh_axes: bool = True
+  show_axes_labels: bool = True
 
   show_body_mesh: bool = True
   show_normals: bool = False
@@ -78,9 +79,7 @@ class OPT:
 
 #TODO: visualise torques
 #TODO: add orientation of earth
-#TODO: add sun
 #TODO: add export option (and settings)
-#TODO: add LVLH
 
 
 class MainWindow(QMainWindow):
@@ -134,21 +133,18 @@ class MainWindow(QMainWindow):
     # eci frame
     self.eci_axes = Axes(frame_name='eci', opacity=0.3)
     self.eci_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
-    if not OPT.show_eci_axes:
-      self.eci_axes.toggle_visibility()
+    self.eci_axes.toggle_visibility(OPT.show_eci_axes, OPT.show_axes_labels)
 
     # base body frame
     self.body_axes = Axes(frame_name='body')
     self.body_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
-    if not OPT.show_body_axes:
-      self.body_axes.toggle_visibility()
+    self.body_axes.toggle_visibility(OPT.show_body_axes, OPT.show_axes_labels)
 
     # lvlh frame
     if OPT.EARTH_AVAILABLE:
       self.lvlh_axes = Axes(frame_name='lvlh', cols=('cyan', 'magenta', 'yellow'))
       self.lvlh_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
-      if not OPT.show_lvlh_axes:
-        self.lvlh_axes.toggle_visibility()
+      self.lvlh_axes.toggle_visibility(OPT.show_lvlh_axes, OPT.show_axes_labels)
 
     # plot satellite com
     self.plotter.add_mesh(pv.Sphere(radius=OPT.GEOMETRY_SCALE*0.05), color='grey')
@@ -321,7 +317,7 @@ class MainWindow(QMainWindow):
     # ref eci axes toggle
     def toggle_raxes(is_checked):
       OPT.show_eci_axes = is_checked
-      self.eci_axes.toggle_visibility()
+      self.eci_axes.toggle_visibility(OPT.show_eci_axes, OPT.show_axes_labels)
       self.update_frame()
     self.raxes_btn = QPushButton(
       'ECI Axes',
@@ -333,7 +329,7 @@ class MainWindow(QMainWindow):
     # body axes toggle
     def toggle_baxes(is_checked):
       OPT.show_body_axes = is_checked
-      self.body_axes.toggle_visibility()
+      self.body_axes.toggle_visibility(OPT.show_body_axes, OPT.show_axes_labels)
       self.update_frame()
     self.baxes_btn = QPushButton(
       'Body Axes',
@@ -345,7 +341,7 @@ class MainWindow(QMainWindow):
     # lvlh axes toggle
     def toggle_lvlh(is_checked):
       OPT.show_lvlh_axes = is_checked
-      self.lvlh_axes.toggle_visibility()
+      self.lvlh_axes.toggle_visibility(OPT.show_lvlh_axes, OPT.show_axes_labels)
       self.update_frame()
     self.laxes_btn = QPushButton(
       'LVLH Axes',
@@ -353,6 +349,17 @@ class MainWindow(QMainWindow):
       checked=OPT.show_lvlh_axes
     )
     self.laxes_btn.toggled.connect(toggle_lvlh)
+
+    # axes labels
+    def toggle_labels(is_checked):
+      OPT.show_axes_labels = is_checked
+      self.eci_axes.toggle_visibility(OPT.show_eci_axes, OPT.show_axes_labels)
+      self.body_axes.toggle_visibility(OPT.show_body_axes, OPT.show_axes_labels)
+      self.lvlh_axes.toggle_visibility(OPT.show_lvlh_axes, OPT.show_axes_labels)
+      self.update_frame()
+    self.labels_btn = QPushButton('Axes Labels', checkable=True, checked=OPT.show_axes_labels)
+    self.labels_btn.toggled.connect(toggle_labels)
+
 
     # satellite body toggle
     def toggle_body_mesh(is_checked):
@@ -432,6 +439,7 @@ class MainWindow(QMainWindow):
     if OPT.EARTH_AVAILABLE:
       toggle_layout.addWidget(self.laxes_btn, 2)
     toggle_layout.addWidget(self.baxes_btn, 2)
+    toggle_layout.addWidget(self.labels_btn, 2)
     if OPT.GEOMETRY_AVAILABLE:
       toggle_layout.addWidget(self.body_mesh_btn, 2)
       toggle_layout.addWidget(self.norm_btn, 1)
@@ -455,12 +463,12 @@ class MainWindow(QMainWindow):
 
     # update body axes orientation
     if OPT.show_body_axes:
-      self.body_axes.rotate_mesh(dcm)
+      self.body_axes.rotate_mesh(dcm, OPT.show_axes_labels)
 
     # update lvlh axes orientation
     if OPT.show_lvlh_axes:
       dcm_lvlh = get_lvlh(r, v)
-      self.lvlh_axes.rotate_mesh(dcm_lvlh)
+      self.lvlh_axes.rotate_mesh(dcm_lvlh, OPT.show_axes_labels)
 
     # update satellite body orientation
     if OPT.GEOMETRY_AVAILABLE and OPT.show_body_mesh:
@@ -551,18 +559,30 @@ class MainWindow(QMainWindow):
     elif bg == 'Stars':
       self.bg_stars.visibility = True
 
-    # change axes labels
     axes = self.plotter.renderer.axes_widget.GetOrientationMarker()
     if bg == 'White':
+      # frame/time counter
       self.hud_label.setStyleSheet('color: black;')
+
+      # pyvista orientation axes
       axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetColor(0, 0, 0)
       axes.GetYAxisCaptionActor2D().GetCaptionTextProperty().SetColor(0, 0, 0)
       axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(0, 0, 0)
+
+      # axes labels
+      if OPT.show_axes_labels:
+        for axes in [self.eci_axes, self.body_axes, self.lvlh_axes]:
+          text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
+          text_property.SetColor(0, 0, 0)
     else:
       self.hud_label.setStyleSheet('color: white;')
       axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
       axes.GetYAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
       axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
+      if OPT.show_axes_labels:
+        for axes in [self.eci_axes, self.body_axes, self.lvlh_axes]:
+          text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
+          text_property.SetColor(1, 1, 1)
 
   def start_interaction_cb(self, *_):
     self.user_interacting = True
