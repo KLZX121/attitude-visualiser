@@ -79,8 +79,26 @@ def read_r_sun_data(filepath) -> list[list[float]]:
   return None
 
 
+def get_lvlh(r, v) -> np.ndarray:
+  # lvlh is defined as z towards earth, y towards negative orbit normal, x completing triad
+
+  ur = r / np.linalg.norm(r)
+  uv = v / np.linalg.norm(v)
+
+  e_z = -ur
+  e_y = np.cross(e_z, uv)
+  e_y /= np.linalg.norm(e_y)
+
+  e_x = np.cross(e_y, e_z)
+  e_x /= np.linalg.norm(e_x)
+
+  A = np.array([e_x, e_y, e_z])
+  A = A
+
+  return A
+
 class Axes:
-  def __init__(self, frame_name, cols=('red', 'green', 'blue'), labels=('x', 'y', 'z'), opacity=1):
+  def __init__(self, frame_name, cols=('orange_red', 'green', 'blue'), labels=('x', 'y', 'z'), opacity=1):
     self.frame_name = frame_name
     self.cols = cols
     self.labels = labels
@@ -97,7 +115,8 @@ class Axes:
         label=self.labels[i], 
         opacity=self.opacity, 
         name=f'{self.frame_name}_{i}',
-        lighting=False
+        ambient=0.5,
+        diffuse=0.5
       )
 
   def rotate_mesh(self, A):  

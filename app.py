@@ -67,6 +67,7 @@ class OPT:
 
   show_eci_axes: bool = False
   show_body_axes: bool = False
+  show_lvlh_axes: bool = True
 
   show_body_mesh: bool = True
   show_normals: bool = False
@@ -130,8 +131,8 @@ class MainWindow(QMainWindow):
     # create plotter
     self.plotter = QtInteractor(central_widget)
 
-    # base ref frame
-    self.eci_axes = Axes(frame_name='ref', opacity=0.3)
+    # eci frame
+    self.eci_axes = Axes(frame_name='eci', opacity=0.3)
     self.eci_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
     if not OPT.show_eci_axes:
       self.eci_axes.toggle_visibility()
@@ -141,6 +142,13 @@ class MainWindow(QMainWindow):
     self.body_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
     if not OPT.show_body_axes:
       self.body_axes.toggle_visibility()
+
+    # lvlh frame
+    if OPT.EARTH_AVAILABLE:
+      self.lvlh_axes = Axes(frame_name='lvlh', cols=('cyan', 'magenta', 'yellow'))
+      self.lvlh_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
+      if not OPT.show_lvlh_axes:
+        self.lvlh_axes.toggle_visibility()
 
     # plot satellite com
     self.plotter.add_mesh(pv.Sphere(radius=OPT.GEOMETRY_SCALE*0.05), color='grey')
@@ -334,6 +342,18 @@ class MainWindow(QMainWindow):
     )
     self.baxes_btn.toggled.connect(toggle_baxes)
 
+    # lvlh axes toggle
+    def toggle_lvlh(is_checked):
+      OPT.show_lvlh_axes = is_checked
+      self.lvlh_axes.toggle_visibility()
+      self.update_frame()
+    self.laxes_btn = QPushButton(
+      'LVLH Axes',
+      checkable=True,
+      checked=OPT.show_lvlh_axes
+    )
+    self.laxes_btn.toggled.connect(toggle_lvlh)
+
     # satellite body toggle
     def toggle_body_mesh(is_checked):
       OPT.show_body_mesh = is_checked
@@ -409,6 +429,8 @@ class MainWindow(QMainWindow):
     if OPT.SUN_AVAILABLE:
       toggle_layout.addWidget(self.sun_btn, 2)
     toggle_layout.addWidget(self.raxes_btn, 2)
+    if OPT.EARTH_AVAILABLE:
+      toggle_layout.addWidget(self.laxes_btn, 2)
     toggle_layout.addWidget(self.baxes_btn, 2)
     if OPT.GEOMETRY_AVAILABLE:
       toggle_layout.addWidget(self.body_mesh_btn, 2)
@@ -428,10 +450,17 @@ class MainWindow(QMainWindow):
     self.hud_label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
 
     dcm = self.dcm_list[frame-1]
+    r = self.r_list[frame-1]
+    v = self.v_list[frame-1]
 
     # update body axes orientation
     if OPT.show_body_axes:
       self.body_axes.rotate_mesh(dcm)
+
+    # update lvlh axes orientation
+    if OPT.show_lvlh_axes:
+      dcm_lvlh = get_lvlh(r, v)
+      self.lvlh_axes.rotate_mesh(dcm_lvlh)
 
     # update satellite body orientation
     if OPT.GEOMETRY_AVAILABLE and OPT.show_body_mesh:
