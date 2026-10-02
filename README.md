@@ -2,6 +2,7 @@
 Python app for visualising and animating spacecraft attitude given the attitude state over time. Designed for use with the [ADCS simulation software](https://github.com/KLZX121/AUStronauts-ADCS) from the [UNSW AUStronauts CubeSat mission](https://unswaustronauts.vercel.app/).
 
 Attitude and other relevant data is read from user given JSON files.
+<img width="715" height="500" alt="image" src="https://github.com/user-attachments/assets/d25958b5-7670-4914-a68a-839687d19cd9" />
 
 ### Features
 **Attitude**
