@@ -104,7 +104,10 @@ def write_json(surfaces, normals, areas, centroids, names):
       'normal': normals[i],
       'area': areas[i],
       'centroid': centroids[i],
-      'Cd': 2
+      'Cd': 2,
+      'Ca': 0.12,
+      'Crs': 0.8,
+      'Crd': 0.08
     }
 
     surface_objs.append(surf_obj)

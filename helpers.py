@@ -164,9 +164,10 @@ class Body:
 
     self.surf_actors = []
     self.norm_actors = []
-    self.force_actors = []
+    self.aero_f_actors = []
+    self.srp_f_actors = []
 
-  def setup(self, plotter, show_normals, add_force_actors=False, show_forces=False):
+  def setup(self, plotter, show_normals, add_force_actors, show_aero_f, show_srp_f):
     for surface_obj in self.geometry.surfaces:
       # convert vertex data to PolyData
       vertices = pv.PolyData(surface_obj.vertices)
@@ -182,7 +183,7 @@ class Body:
         color=mesh_col,
         ambient=0.05,
         diffuse=0.8,
-        specular=0.5,
+        specular=0.5
       )
       self.surf_actors.append(surf_actor)
 
@@ -201,13 +202,19 @@ class Body:
 
       # surface force actors
       if add_force_actors:
-        force_mesh = pv.Arrow(start=(-1, 0, 0), direction=(1, 0, 0), tip_resolution=10, shaft_resolution=10)
-        force_actor = plotter.add_mesh(force_mesh, color='red', lighting=False)
-        force_actor.scale = 0
-        self.force_actors.append(force_actor)
-        force_actor.visibility = show_forces
+        arrow_mesh = pv.Arrow(start=(-1, 0, 0), direction=(1, 0, 0), tip_resolution=10, shaft_resolution=10)
 
-  def toggle_visibility(self, show_surf, show_norms, show_forces):
+        aero_f_actor = plotter.add_mesh(arrow_mesh, color='dodger_blue', lighting=False)
+        aero_f_actor.scale = 0
+        aero_f_actor.visibility = show_aero_f
+        self.aero_f_actors.append(aero_f_actor)
+
+        srp_f_actor = plotter.add_mesh(arrow_mesh, color='gold', lighting=False)
+        srp_f_actor.scale = 0
+        srp_f_actor.visibility = show_srp_f
+        self.srp_f_actors.append(srp_f_actor)
+
+  def toggle_visibility(self, show_surf, show_norms, show_aero_f, show_srp_f):
     for actor in self.surf_actors:
       actor.visibility = show_surf
     for actor in self.norm_actors:
@@ -215,26 +222,49 @@ class Body:
         actor.visibility = False
       else:
         actor.visibility = show_norms
-    for actor in self.force_actors:
+    for actor in self.aero_f_actors:
       if not show_surf:
         actor.visibility = False
       else:
-        actor.visibility = show_forces
+        actor.visibility = show_aero_f
+    for actor in self.srp_f_actors:
+      if not show_surf:
+        actor.visibility = False
+      else:
+        actor.visibility = show_srp_f
 
   def rotate_mesh(self, dcm):
-    for actor in self.surf_actors + self.norm_actors + self.force_actors:
+    for actor in self.surf_actors + self.norm_actors + self.aero_f_actors + self.srp_f_actors:
       actor.rotation_from(dcm.T)
 
-  def update_forces(self, surface_forces, dcm, scale_factor):    
+  def update_forces(self, surface_forces, dcm, aero_scale_factor, srp_scale_factor):    
     forces = surface_forces.a.f
     summed_forces = [np.linalg.norm(f) for f in forces]
 
-    for i, force_actor in enumerate(self.force_actors):
+    for i, force_actor in enumerate(self.aero_f_actors):
       f = summed_forces[i]
       uf = [0, 0, 0]
       if f: uf = surface_forces.a.f[i] / f
 
-      actor_scale = f * scale_factor
+      actor_scale = f * aero_scale_factor
+
+      force_actor.scale = actor_scale
+      force_actor.position = self.surf_actors[i].center
+
+      # rotate in direction of uf
+      if any(uf):
+        rot = pv.Transform().rotate_vector(np.cross([1, 0, 0], uf), np.degrees(np.arccos(np.dot([1, 0, 0], uf))))
+        force_actor.rotation_from(dcm.T @ rot.rotation_matrix)
+
+    forces = surface_forces.s.f
+    summed_forces = [np.linalg.norm(f) for f in forces]
+
+    for i, force_actor in enumerate(self.srp_f_actors):
+      f = summed_forces[i]
+      uf = [0, 0, 0]
+      if f: uf = surface_forces.s.f[i] / f
+
+      actor_scale = f * srp_scale_factor
 
       force_actor.scale = actor_scale
       force_actor.position = self.surf_actors[i].center

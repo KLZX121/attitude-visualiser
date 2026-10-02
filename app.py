@@ -11,6 +11,7 @@ from qtpy.QtWidgets import (
   QMainWindow,
   QPushButton,
   QSlider,
+  QComboBox,
   QLabel,
   QVBoxLayout,
   QHBoxLayout,
@@ -44,7 +45,8 @@ class OPT:
   SUN_SIZE: float = 1
   SUN_DISTANCE: float = 100
   # order of magnitude of forces
-  FORCE_SCALE: float = 0.15*10**5
+  AERO_FORCE_SCALE: float = 0.15*10**5
+  SRP_FORCE_SCALE: float = 0.3*10**6
   
   WINDOW_SIZE: tuple[int, int] = (800, 600)
 
@@ -72,13 +74,12 @@ class OPT:
 
   show_body_mesh: bool = True
   show_normals: bool = False
-  show_forces: bool = True
+  show_aero_f: bool = False
+  show_srp_f: bool = True
 
   show_earth: bool = True
   show_sun: bool = True
 
-#TODO: visualise torques
-#TODO: add orientation of earth
 #TODO: add export option (and settings)
 
 
@@ -152,10 +153,10 @@ class MainWindow(QMainWindow):
     # plot satellite body
     if OPT.GEOMETRY_AVAILABLE:              
       self.body_mesh = Body(self.geometry_data)
-      self.body_mesh.setup(self.plotter, OPT.show_normals, OPT.FORCES_AVAILABLE, OPT.show_forces)
+      self.body_mesh.setup(self.plotter, OPT.show_normals, OPT.FORCES_AVAILABLE, OPT.show_aero_f, OPT.show_srp_f)
 
       if not OPT.show_body_mesh:
-        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
+        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f)
 
     # plot earth
     if OPT.EARTH_AVAILABLE:
@@ -364,14 +365,14 @@ class MainWindow(QMainWindow):
     # satellite body toggle
     def toggle_body_mesh(is_checked):
       OPT.show_body_mesh = is_checked
-      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
+      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f)
 
       if OPT.show_body_mesh: 
         self.norm_btn.setEnabled(True)
-        self.force_btn.setEnabled(True)
+        self.forces_combo.setEnabled(True)
       else:
         self.norm_btn.setEnabled(False)
-        self.force_btn.setEnabled(False)
+        self.forces_combo.setEnabled(False)
 
       self.update_frame()
     self.body_mesh_btn = QPushButton(
@@ -385,7 +386,7 @@ class MainWindow(QMainWindow):
       OPT.show_normals = is_checked
 
       if hasattr(self, 'body_mesh'):
-        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
+        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f)
 
       self.update_frame()
     self.norm_btn = QPushButton(
@@ -395,26 +396,33 @@ class MainWindow(QMainWindow):
     )
     self.norm_btn.toggled.connect(toggle_norms)
 
-    # satellite forces toggle
-    def toggle_forces(is_checked):
-      OPT.show_forces = is_checked
+    # satellite forces combo box
+    def change_forces(option):
+      OPT.show_aero_f = any(sub in option for sub in ['Aero', 'All'])
+      OPT.show_srp_f = any(sub in option for sub in ['SRP', 'All'])
 
-      if hasattr(self, 'body_mesh'):
-        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_forces)
+      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f)
 
       self.update_frame()
-    self.force_btn = QPushButton(
-      'Forces',
-      checkable=True,
-      enabled=OPT.show_body_mesh
-    )
-    self.force_btn.toggled.connect(toggle_forces)
+    self.forces_combo = QComboBox()
+    self.forces_combo.addItems(['None', 'Aero', 'SRP', 'All'])
+    self.forces_combo.currentTextChanged.connect(change_forces)
+
 
     if OPT.GEOMETRY_AVAILABLE:
       self.body_mesh_btn.setChecked(OPT.show_body_mesh)
       self.norm_btn.setChecked(OPT.show_normals)
       if OPT.FORCES_AVAILABLE:
-        self.force_btn.setChecked(OPT.show_forces)
+        #current_force = ''
+        if OPT.show_srp_f and OPT.show_aero_f:
+          current_force = 'All'
+        elif OPT.show_aero_f:
+          current_force = 'Aero'
+        elif OPT.show_srp_f:
+          current_force = 'SRP'
+        else:
+          current_force = 'None'
+        self.forces_combo.setCurrentText(current_force)
 
     # controls ui layout
     playback_layout = QHBoxLayout()
@@ -444,7 +452,7 @@ class MainWindow(QMainWindow):
       toggle_layout.addWidget(self.body_mesh_btn, 2)
       toggle_layout.addWidget(self.norm_btn, 1)
     if OPT.FORCES_AVAILABLE:
-      toggle_layout.addWidget(self.force_btn, 1)
+      toggle_layout.addWidget(self.forces_combo, 1)
     toggle_layout.addStretch(100)
 
     return toggle_layout, playback_layout
@@ -475,8 +483,8 @@ class MainWindow(QMainWindow):
       self.body_mesh.rotate_mesh(dcm)
 
       # update surface forces
-      if OPT.FORCES_AVAILABLE and OPT.show_forces:
-        self.body_mesh.update_forces(self.surface_forces[frame-1], dcm, OPT.FORCE_SCALE)
+      if OPT.FORCES_AVAILABLE and (OPT.show_aero_f or OPT.show_srp_f):
+        self.body_mesh.update_forces(self.surface_forces[frame-1], dcm, OPT.AERO_FORCE_SCALE, OPT.SRP_FORCE_SCALE)
       
 
     if OPT.EARTH_AVAILABLE:
