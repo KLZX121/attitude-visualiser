@@ -2,6 +2,7 @@
 Python app for visualising and animating spacecraft attitude given the attitude state over time. Designed for use with the [ADCS simulation software](https://github.com/KLZX121/AUStronauts-ADCS) from the [UNSW AUStronauts CubeSat mission](https://unswaustronauts.vercel.app/).
 
 Attitude and other relevant data is read from user given JSON files.
+
 <img width="715" height="500" alt="image" src="https://github.com/user-attachments/assets/d25958b5-7670-4914-a68a-839687d19cd9" />
 
 ### Features
@@ -45,18 +46,26 @@ Settings are available for switching background colour, toggling on/off the vari
 ### Input JSON Files
 Place correctly named and formatted JSON files within the same directory as the app. See below for [examples](#example-files).
 
-*xdata.json* - Required file for attitude and optionally including orbital data. Given as a 2D array: list of state vectors, with Shuster/JPL format ECI->Body scalar first quaternions, and optional ECI orbital position and velocity. It is important to define the indices of these values in the configuration file. Each state vector represents the state at subsequent timesteps. 
+**xdata.json**
+
+Required file for attitude and optionally including orbital data. Given as a 2D array: list of state vectors, with Shuster/JPL format ECI->Body scalar first quaternions, and optional ECI orbital position and velocity. It is important to define the indices of these values in the configuration file. Each state vector represents the state at subsequent timesteps. 
 
 For example, with the indices defined as: I_Q = (0, 4), I_R = (4, 7), I_V = (7, 10), then let X_i = [qs, qx, qy, qz, rx, ry, rz, vx, vy, vz] be the state vector at timestep i. Then, for a simulation with 3 timesteps, `xdata.json` would be: `[X_1, X_2, X_3]`
 
-*geometry.json* - Optional file for satellite geometry visualisation. Given as an object with: `{n_surfaces: int, surfaces: {name: str, vertices: int[3][]}[] }`. The file `generate_geometry.py` will generate an example 3U CubeSat.
+**geometry.json**
 
-*surfdata.json* - Optional file for satellite panel disturbance forces. Given as a list of objects representing the forces and torques acting on each satellite panel at each timestep: `{a: {f: int[3][], t: int[3][]}, s: {f: int[3][], t: int[3][]}}[]]`. `a.f`
+Optional file for satellite geometry visualisation. Given as an object with: `{n_surfaces: int, surfaces: {name: str, vertices: int[3][]}[] }`. The file `generate_geometry.py` will generate an example 3U CubeSat.
+
+**surfdata.json**
+
+Optional file for satellite panel disturbance forces. Given as a list of objects representing the forces and torques acting on each satellite panel at each timestep: `{a: {f: int[3][], t: int[3][]}, s: {f: int[3][], t: int[3][]}}[]]`. `a.f`
 and `a.t` contain a list of aerodynamic forces and torques for each panel, and `s.f` and `s.t` do the same for SRP forces and torques.
 
-*rs.json* - Optional file for Sun position. Given as a 2D array: list of position vectors (ECI) at each timestep: `int[3][]`.
+**rs.json**
 
-#### Example Files
+Optional file for Sun position. Given as a 2D array: list of position vectors (ECI) at each timestep: `int[3][]`.
+
+### Example Files
 These are the first two timesteps of an example simulation from a 3U CubeSat.
 
 **xdata.json**
