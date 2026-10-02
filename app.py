@@ -225,15 +225,12 @@ class MainWindow(QMainWindow):
     self.loop_btn.toggled.connect(toggle_loop)
 
     # playback speed
-    def set_playback_speed(*_):
-      curr_speed = int(self.speed_btn.text()[:-1])
-      next_speed_i = (OPT.SPEEDS.index(curr_speed) + 1) % len(OPT.SPEEDS)
-
-      OPT.playback_speed = OPT.SPEEDS[next_speed_i]
-
-      self.speed_btn.setText(f'{OPT.playback_speed}x')
-    self.speed_btn = QPushButton(f'{OPT.playback_speed}x')
-    self.speed_btn.clicked.connect(set_playback_speed)
+    def set_playback_speed(label):
+      OPT.playback_speed = int(label[:-1])
+    self.speed_combo = QComboBox()
+    self.speed_combo.addItems([f'{speed}x' for speed in OPT.SPEEDS])
+    self.speed_combo.setCurrentText(f'{OPT.playback_speed}x')
+    self.speed_combo.currentTextChanged.connect(set_playback_speed)
 
     # playback slider
     self.update_frame(1)
@@ -274,30 +271,22 @@ class MainWindow(QMainWindow):
     self.timer.start(OPT.TIMER_INT)
 
     # camera tracking mode
-    def switch_cam(*_):
-      curr_label = self.cam_btn.text()
-      next_label_i = (OPT.CAM_LABELS.index(curr_label) + 1) % len(OPT.CAM_LABELS)
-
-      OPT.tracking_camera = OPT.CAM_LABELS[next_label_i]
-      self.cam_btn.setText(OPT.tracking_camera)
-
+    def switch_cam(label):
+      OPT.tracking_camera = label
       self.update_frame()
-
-    self.cam_btn = QPushButton(OPT.tracking_camera)
-    self.cam_btn.clicked.connect(switch_cam)
+    self.cam_combo = QComboBox()
+    self.cam_combo.addItems(OPT.CAM_LABELS)
+    self.cam_combo.setCurrentText(OPT.tracking_camera)
+    self.cam_combo.currentTextChanged.connect(switch_cam)
 
     # background switching
-    def switch_bg(*_):
-      curr_label = self.bg_btn.text()
-      next_label_i = (OPT.BACKGROUNDS.index(curr_label) + 1) % len(OPT.BACKGROUNDS)
-
-      OPT.background = OPT.BACKGROUNDS[next_label_i]
-      self.bg_btn.setText(OPT.background)
-
+    def switch_bg(label):
+      OPT.background = label
       self.change_bg(OPT.background)
-
-    self.bg_btn = QPushButton(OPT.background)
-    self.bg_btn.clicked.connect(switch_bg)
+    self.bg_combo = QComboBox()
+    self.bg_combo.addItems(OPT.BACKGROUNDS)
+    self.bg_combo.setCurrentText(OPT.background)
+    self.bg_combo.currentTextChanged.connect(switch_bg)
 
     # earth toggle
     def toggle_earth(is_checked):
@@ -428,16 +417,16 @@ class MainWindow(QMainWindow):
     playback_layout = QHBoxLayout()
     playback_layout.addWidget(self.play_button)
     playback_layout.addWidget(self.loop_btn)
-    playback_layout.addWidget(self.speed_btn)
+    playback_layout.addWidget(self.speed_combo)
     playback_layout.addWidget(self.step_neg_btn)
     playback_layout.addWidget(self.step_pos_btn)
     playback_layout.addWidget(self.frame_slider)
 
     toggle_layout = QHBoxLayout()
     toggle_layout.addWidget(QLabel('Camera:'), 1)
-    toggle_layout.addWidget(self.cam_btn, 2)
+    toggle_layout.addWidget(self.cam_combo, 2)
     toggle_layout.addWidget(QLabel('Background:'), 1)
-    toggle_layout.addWidget(self.bg_btn, 2)
+    toggle_layout.addWidget(self.bg_combo, 2)
     toggle_layout.addWidget(QLabel('Toggles:'), 1)
     if OPT.EARTH_AVAILABLE:
       toggle_layout.addWidget(self.earth_btn, 2)
