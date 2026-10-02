@@ -1,4 +1,5 @@
 import sys
+import time
 import pyvista as pv
 import numpy as np
 from dataclasses import dataclass
@@ -55,6 +56,10 @@ class OPT:
   # how many frames to increment each playback step
   SPEEDS = [1, 2, 5, 10, 20]
   playback_speed: int = 5
+  # real time playback in simulation time
+  real_time: bool = False
+  # keeps track of when to step frame
+  real_time_last_update: float = 0
   # how often (ms) that a playback step occurs (17ms = 1/(60fps))
   TIMER_INT: int = 17
 
@@ -226,8 +231,14 @@ class MainWindow(QMainWindow):
 
     # playback speed
     def set_playback_speed(label):
-      OPT.playback_speed = int(label[:-1])
+      if label == 'Real Time':
+        OPT.real_time = True
+        OPT.playback_speed = 1
+      else:
+        OPT.real_time = False
+        OPT.playback_speed = int(label[:-1])
     self.speed_combo = QComboBox()
+    self.speed_combo.addItem('Real Time')
     self.speed_combo.addItems([f'{speed}x' for speed in OPT.SPEEDS])
     self.speed_combo.setCurrentText(f'{OPT.playback_speed}x')
     self.speed_combo.currentTextChanged.connect(set_playback_speed)
@@ -242,16 +253,20 @@ class MainWindow(QMainWindow):
     def step_frame(is_timer, frame_increment):
       if is_timer and not OPT.autoplay:
         return
+      elif is_timer and OPT.real_time:
+        curr_time = time.perf_counter()
+        if (curr_time - OPT.real_time_last_update) >= OPT.SIMULATION_TIMESTEP:
+          OPT.real_time_last_update = curr_time
+        else:
+          return
       
       current_frame = self.frame_slider.value()
-  
       next_frame = current_frame + frame_increment
+
       if OPT.loop_playback:
         next_frame = next_frame % self.N_FRAMES
-
         if next_frame < 1:
           next_frame = self.N_FRAMES
-
       elif next_frame > self.N_FRAMES:
         next_frame = self.N_FRAMES
         self.play_button.toggle()
