@@ -65,7 +65,7 @@ class OPT:
 
   # whether the camera should track the satellite over its orbit
   # the camera angle to use for tracking
-  CAM_LABELS = ['Orbital', 'Inertial', 'Down', 'Forward', 'Side', 'Free']
+  CAM_LABELS = ['Free', 'Satellite', 'Orbital', 'Inertial', 'Down', 'Forward', 'Side']
   tracking_camera: str = 'Orbital'
 
   # background image/skybox
@@ -126,6 +126,10 @@ class MainWindow(QMainWindow):
     
     # setup control buttons and settings
     toggles_layout, playback_layout = self.setup_controls()
+
+    # reset camera
+    self.plotter.reset_camera(bounds=(-OPT.GEOMETRY_SCALE, OPT.GEOMETRY_SCALE)*3)
+    self.end_interaction_cb()
 
     # add everything to central layout
     central_layout.addLayout(toggles_layout)
@@ -194,9 +198,6 @@ class MainWindow(QMainWindow):
     self.bg_stars, _ = self.plotter.add_actor(skybox_texture)
     self.bg_stars.visibility = False
 
-
-    self.plotter.add_axes()
-
     # create layout
     plotter_widget = QWidget()
     container = QVBoxLayout(plotter_widget)
@@ -206,6 +207,7 @@ class MainWindow(QMainWindow):
     self.hud_label.setStyleSheet('color: white;')
     self.hud_label.move(20, 20)
 
+    self.plotter.add_axes()
     self.change_bg(OPT.background)
 
     return plotter_widget
@@ -513,7 +515,7 @@ class MainWindow(QMainWindow):
           cam.up = u_v
         elif OPT.tracking_camera == 'Forward':
           # motion into screen
-          cam.position = -u_v * 2 + u_r * 0.8
+          cam.position = -u_v * 2
           cam.up = u_r
         elif OPT.tracking_camera == 'Side':
           # motion towards right of screen
@@ -535,9 +537,7 @@ class MainWindow(QMainWindow):
               ))
 
               rot = pv.Transform().rotate_vector(axis, angle)
-
               R = rot.rotation_matrix
-
               cam.position = R @ self.ref_cam_pos
 
             view = np.array(cam.direction)
@@ -550,6 +550,12 @@ class MainWindow(QMainWindow):
               right /= norm
               cam.up = np.cross(right, view)
               cam.up /= np.linalg.norm(cam.up)
+
+        elif OPT.tracking_camera == 'Satellite' and not self.user_interacting:
+          # arbitrary angle, fixed to body frame
+          if hasattr(self, 'ref_cam_pos_body'):
+            cam.position = dcm.T @ self.ref_cam_pos_body
+            cam.up = dcm.T @ self.ref_cam_up_body
 
         elif OPT.tracking_camera == 'Inertial':
           # arbitrary angle, inertially fixed
@@ -603,6 +609,10 @@ class MainWindow(QMainWindow):
     self.user_interacting = False
     self.ref_cam_pos = np.array(self.plotter.camera.position)
     self.ref_earth_pos = np.array(self.earth.actor.position)
+
+    dcm = self.dcm_list[self.frame_slider.value()-1]
+    self.ref_cam_pos_body = dcm @ np.array(self.plotter.camera.position)
+    self.ref_cam_up_body = dcm @ np.array(self.plotter.camera.up)
 
   def closeEvent(self, event):
     self.plotter.close()
