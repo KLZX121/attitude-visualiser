@@ -7,6 +7,7 @@ from config import OPT
 
 from pyvistaqt import QtInteractor
 from qtpy.QtCore import Qt, QTimer
+from PyQt6.QtGui import QDoubleValidator
 from qtpy.QtWidgets import *
 
 #TODO: add export option (and settings)
@@ -141,7 +142,7 @@ class MainWindow(QMainWindow):
 
     return plotter_widget
 
-  def setup_controls(self) -> tuple[QHBoxLayout, QHBoxLayout, QVBoxLayout]:
+  def setup_controls(self) -> tuple[QHBoxLayout, QVBoxLayout, QVBoxLayout]:
     # play pause button
     def toggle_play(is_checked):
       OPT.autoplay = is_checked
@@ -215,6 +216,16 @@ class MainWindow(QMainWindow):
     self.timer = QTimer(self)
     self.timer.timeout.connect(lambda: step_frame(True, OPT.playback_speed))
     self.timer.start(OPT.TIMER_INT)
+
+    # change simulation timestep
+    def update_dt(text):
+      if text:
+        OPT.SIMULATION_TIMESTEP = float(text)
+    self.dt_input = QLineEdit()
+    self.dt_input.setValidator(QDoubleValidator(bottom=0))
+    self.dt_input.setText(str(OPT.SIMULATION_TIMESTEP))
+    self.dt_input.textChanged.connect(update_dt)
+    self.dt_input.setMaximumWidth(80)
 
     # camera tracking mode
     def switch_cam(label):
@@ -389,14 +400,24 @@ class MainWindow(QMainWindow):
       left_layout.addWidget(self.forces_combo)
     left_layout.addStretch()
 
+    bot_top = QHBoxLayout()
+    bot_top.addWidget(self.play_button)
+    bot_top.addWidget(self.step_neg_btn)
+    bot_top.addWidget(self.step_pos_btn)
+    bot_top.addWidget(self.frame_slider)
 
-    bottom_layout = QHBoxLayout()
-    bottom_layout.addWidget(self.play_button)
-    bottom_layout.addWidget(self.loop_btn)
-    bottom_layout.addWidget(self.speed_combo)
-    bottom_layout.addWidget(self.step_neg_btn)
-    bottom_layout.addWidget(self.step_pos_btn)
-    bottom_layout.addWidget(self.frame_slider)
+    bot_bot = QHBoxLayout()
+    bot_bot.addWidget(self.loop_btn)
+    bot_bot.addWidget(QLabel('Playback Speed:'))
+    bot_bot.addWidget(self.speed_combo)
+    bot_bot.addWidget(QLabel('Simulation Timestep (s):'))
+    bot_bot.addWidget(self.dt_input)
+    bot_bot.addStretch()
+
+    bottom_layout = QVBoxLayout()
+    bottom_layout.addLayout(bot_top)
+    add_divider(bottom_layout, spacing_before=0, spacing_after=0)
+    bottom_layout.addLayout(bot_bot)
 
 
     return top_layout, bottom_layout, left_layout
@@ -407,7 +428,8 @@ class MainWindow(QMainWindow):
       frame = self.frame_slider.value()
 
     t = (frame-1)*OPT.SIMULATION_TIMESTEP
-    self.hud_label.setText(f'Frame: {frame}\nt = {(t // 3600) % 60} h {(t // 60) % 60} m {t % 60} s')
+    self.hud_label.setText(f'Frame: {frame} | t = {((t // 3600) % 60):.0f} h {((t // 60) % 60):.0f} m {(t % 60):.3f} s')
+    self.hud_label.adjustSize()
 
     dcm = self.dcm_list[frame-1]
     r = self.r_list[frame-1]
