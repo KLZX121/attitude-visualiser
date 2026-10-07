@@ -2,91 +2,15 @@ import sys
 import time
 import pyvista as pv
 import numpy as np
-from dataclasses import dataclass
 from helpers import *
+from config import OPT
 
 from pyvistaqt import QtInteractor
 from qtpy.QtCore import Qt, QTimer
-from qtpy.QtWidgets import (
-  QApplication,
-  QMainWindow,
-  QPushButton,
-  QSlider,
-  QComboBox,
-  QLabel,
-  QVBoxLayout,
-  QHBoxLayout,
-  QWidget
-)
-
-@dataclass
-class OPT:
-  FILEPATH_STATE: str = 'xdata.json'
-  FILEPATH_GEOMETRY: str = 'geometry.json'
-  FILEPATH_SURFACE_FORCES: str = 'surfdata.json'
-  FILEPATH_SUN_POS: str = 'rs.json'
-
-  EARTH_AVAILABLE: bool = False
-  GEOMETRY_AVAILABLE: bool = False
-  FORCES_AVAILABLE: bool = False
-  SUN_AVAILABLE: bool = False
-
-  # simulation stepsize (dt)
-  SIMULATION_TIMESTEP: int = 1
-  # indices of quaternion, orbital pos, and orbital vel in state data
-  I_Q: tuple[int, int] = (6, 10)
-  I_R: tuple[int, int] = (0, 3)
-  I_V: tuple[int, int] = (3, 6)
-
-  # roughly longest length of satellite, used to resize axes and earth
-  GEOMETRY_SCALE: float = 0.3
-  # how much bigger the earth/sun is compared to the satellite
-  EARTH_SIZE: float = 10
-  EARTH_DISTANCE: float = 1.2
-  SUN_SIZE: float = 1
-  SUN_DISTANCE: float = 100
-  # order of magnitude of forces
-  AERO_FORCE_SCALE: float = 0.15*10**5
-  SRP_FORCE_SCALE: float = 0.3*10**6
-  
-  WINDOW_SIZE: tuple[int, int] = (800, 600)
-
-  autoplay: bool = False
-  loop_playback: bool = True
-  # how many frames to increment each playback step
-  SPEEDS = [1, 2, 5, 10, 20]
-  playback_speed: int = 5
-  # real time playback in simulation time
-  real_time: bool = False
-  # keeps track of when to step frame
-  real_time_last_update: float = 0
-  # how often (ms) that a playback step occurs (17ms = 1/(60fps))
-  TIMER_INT: int = 17
-
-  # whether the camera should track the satellite over its orbit
-  # the camera angle to use for tracking
-  CAM_LABELS = ['Free', 'Satellite', 'Orbital', 'Inertial', 'Down', 'Forward', 'Side']
-  tracking_camera: str = 'Orbital'
-
-  # background image/skybox
-  BACKGROUNDS = ['Black', 'White', 'Stars']
-  background = 'Black'
-
-  show_eci_axes: bool = False
-  show_body_axes: bool = False
-  show_lvlh_axes: bool = True
-  show_axes_labels: bool = True
-
-  show_body_mesh: bool = True
-  show_normals: bool = False
-  show_aero_f: bool = False
-  show_srp_f: bool = True
-
-  show_earth: bool = True
-  show_sun: bool = True
+from qtpy.QtWidgets import *
 
 #TODO: add export option (and settings)
-
+#TODO: add settings for dt, scaling, etc., rearrange settings
 
 class MainWindow(QMainWindow):
   user_interacting = False
@@ -491,6 +415,10 @@ class MainWindow(QMainWindow):
       # update surface forces
       if OPT.FORCES_AVAILABLE and (OPT.show_aero_f or OPT.show_srp_f):
         self.body_mesh.update_forces(self.surface_forces[frame-1], dcm, OPT.AERO_FORCE_SCALE, OPT.SRP_FORCE_SCALE)
+
+    if OPT.SUN_AVAILABLE and OPT.show_sun:
+      r_s = self.r_sun_list[frame-1]
+      self.sun.update_position(r_s, OPT.SUN_DISTANCE)
       
 
     if OPT.EARTH_AVAILABLE:
@@ -504,66 +432,62 @@ class MainWindow(QMainWindow):
       if OPT.show_earth:
         self.earth.update_position(r, OPT.EARTH_DISTANCE)
 
-      # use camera tracking
-      if not OPT.tracking_camera == 'Free':
-        cam = self.plotter.camera
-        cam.focal_point = (0, 0, 0)
+    # use camera tracking
+    if OPT.EARTH_AVAILABLE and not OPT.tracking_camera == 'Free':
+      cam = self.plotter.camera
+      cam.focal_point = (0, 0, 0)
 
-        if OPT.tracking_camera == 'Down':
-          # motion towards top of screen
-          cam.position = -self.earth.u * 2
-          cam.up = u_v
-        elif OPT.tracking_camera == 'Forward':
-          # motion into screen
-          cam.position = -u_v * 2
-          cam.up = u_r
-        elif OPT.tracking_camera == 'Side':
-          # motion towards right of screen
-          cam.position = np.cross(u_v, u_r) * 2
-          cam.up = u_r
-        elif OPT.tracking_camera == 'Orbital' and not self.user_interacting:
-          # arbitrary angle, fixed to orbital frame
-          if hasattr(self, 'ref_cam_pos'):
-            ref_earth_dir = self.ref_earth_pos / np.linalg.norm(self.ref_earth_pos)
+      if OPT.tracking_camera == 'Down':
+        # motion towards top of screen
+        cam.position = -self.earth.u * 2
+        cam.up = u_v
+      elif OPT.tracking_camera == 'Forward':
+        # motion into screen
+        cam.position = -u_v * 2
+        cam.up = u_r
+      elif OPT.tracking_camera == 'Side':
+        # motion towards right of screen
+        cam.position = np.cross(u_v, u_r) * 2
+        cam.up = u_r
+      elif OPT.tracking_camera == 'Orbital' and not self.user_interacting:
+        # arbitrary angle, fixed to orbital frame
+        if hasattr(self, 'ref_cam_pos'):
+          ref_earth_dir = self.ref_earth_pos / np.linalg.norm(self.ref_earth_pos)
 
-            axis = np.cross(ref_earth_dir, -u_r)
-            axis_norm = np.linalg.norm(axis)
+          axis = np.cross(ref_earth_dir, -u_r)
+          axis_norm = np.linalg.norm(axis)
 
-            if axis_norm > 1e-8:
-              axis /= axis_norm
+          if axis_norm > 1e-8:
+            axis /= axis_norm
 
-              angle = np.degrees(np.arccos(
-                np.clip(np.dot(ref_earth_dir, -u_r), -1.0, 1.0)
-              ))
+            angle = np.degrees(np.arccos(
+              np.clip(np.dot(ref_earth_dir, -u_r), -1.0, 1.0)
+            ))
 
-              rot = pv.Transform().rotate_vector(axis, angle)
-              R = rot.rotation_matrix
-              cam.position = R @ self.ref_cam_pos
+            rot = pv.Transform().rotate_vector(axis, angle)
+            R = rot.rotation_matrix
+            cam.position = R @ self.ref_cam_pos
 
-            view = np.array(cam.direction)
-            earth = np.array(u_r)
+          view = np.array(cam.direction)
+          earth = np.array(u_r)
 
-            right = np.cross(view, earth)
-            norm = np.linalg.norm(right)
+          right = np.cross(view, earth)
+          norm = np.linalg.norm(right)
 
-            if norm > 1e-8:
-              right /= norm
-              cam.up = np.cross(right, view)
-              cam.up /= np.linalg.norm(cam.up)
+          if norm > 1e-8:
+            right /= norm
+            cam.up = np.cross(right, view)
+            cam.up /= np.linalg.norm(cam.up)
 
-        elif OPT.tracking_camera == 'Satellite' and not self.user_interacting:
-          # arbitrary angle, fixed to body frame
-          if hasattr(self, 'ref_cam_pos_body'):
-            cam.position = dcm.T @ self.ref_cam_pos_body
-            cam.up = dcm.T @ self.ref_cam_up_body
+      elif OPT.tracking_camera == 'Satellite' and not self.user_interacting:
+        # arbitrary angle, fixed to body frame
+        if hasattr(self, 'ref_cam_pos_body'):
+          cam.position = dcm.T @ self.ref_cam_pos_body
+          cam.up = dcm.T @ self.ref_cam_up_body
 
-        elif OPT.tracking_camera == 'Inertial':
-          # arbitrary angle, inertially fixed
-          None
-
-    if OPT.SUN_AVAILABLE and OPT.show_sun:
-      r_s = self.r_sun_list[frame-1]
-      self.sun.update_position(r_s, OPT.SUN_DISTANCE)
+      elif OPT.tracking_camera == 'Inertial':
+        # arbitrary angle, inertially fixed
+        None
     
     self.plotter.render()
 
