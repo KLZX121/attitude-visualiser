@@ -11,7 +11,6 @@ from PyQt6.QtGui import QDoubleValidator
 from qtpy.QtWidgets import *
 
 #TODO: add export option (and settings)
-#TODO: add settings for dt, scaling, etc., rearrange settings
 
 class MainWindow(QMainWindow):
   user_interacting = False
@@ -245,6 +244,15 @@ class MainWindow(QMainWindow):
     self.bg_combo.setCurrentText(OPT.background)
     self.bg_combo.currentTextChanged.connect(switch_bg)
 
+    # time format
+    def switch_time_format(label):
+      OPT.time_format = label
+      self.update_frame()
+    self.time_combo = QComboBox()
+    self.time_combo.addItems(OPT.TIME_FORMATS)
+    self.time_combo.setCurrentText(OPT.time_format)
+    self.time_combo.currentTextChanged.connect(switch_time_format)
+
     # earth toggle
     def toggle_earth(is_checked):
       OPT.show_earth = is_checked
@@ -376,6 +384,8 @@ class MainWindow(QMainWindow):
     top_layout.addWidget(self.cam_combo, 2)
     top_layout.addWidget(QLabel('Background:'), 1)
     top_layout.addWidget(self.bg_combo, 2)
+    top_layout.addWidget(QLabel('Time Format:'), 1)
+    top_layout.addWidget(self.time_combo, 2)
     top_layout.addStretch(100)
 
     left_layout = QVBoxLayout()
@@ -428,7 +438,7 @@ class MainWindow(QMainWindow):
       frame = self.frame_slider.value()
 
     t = (frame-1)*OPT.SIMULATION_TIMESTEP
-    self.hud_label.setText(f'Frame: {frame} | t = {((t // 3600) % 60):.0f} h {((t // 60) % 60):.0f} m {(t % 60):.3f} s')
+    self.hud_label.setText(f'Frame: {frame} | t = {format_time(t, OPT.time_format)}')
     self.hud_label.adjustSize()
 
     dcm = self.dcm_list[frame-1]

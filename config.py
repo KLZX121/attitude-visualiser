@@ -45,6 +45,10 @@ class OPT:
   # how often (ms) that a playback step occurs (17ms = 1/(60fps))
   TIMER_INT: int = 17
 
+  # time hud format
+  TIME_FORMATS = ['hr:min:sec', 'min', 'sec']
+  time_format = 'hr:min:sec'
+
   # whether the camera should track the satellite over its orbit
   # the camera angle to use for tracking
   CAM_LABELS = ['Free', 'Satellite', 'Orbital', 'Inertial', 'Down', 'Forward', 'Side']

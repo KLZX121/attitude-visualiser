@@ -379,3 +379,14 @@ def add_divider(layout, orientation=QFrame.HLine, spacing_before=10, spacing_aft
   layout.addSpacing(spacing_before)
   layout.addWidget(divider)
   layout.addSpacing(spacing_after)
+
+def format_time(t, format):
+  time_str = ''
+  if format == 'sec':
+    time_str = str(f'{t:.3f} s')
+  elif format == 'min':
+    time_str = str(f'{(t/60):.3f} m')
+  elif format == 'hr:min:sec':
+    time_str = str(f'{((t // 3600) % 60):.0f} h {((t // 60) % 60):.0f} m {(t % 60):.3f} s')
+
+  return time_str
