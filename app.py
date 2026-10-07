@@ -49,16 +49,21 @@ class MainWindow(QMainWindow):
     plotter_widget = self.setup_plotter(central_widget)
     
     # setup control buttons and settings
-    toggles_layout, playback_layout = self.setup_controls()
+    top_layout, bottom_layout, left_layout = self.setup_controls()
+
+    # middle layout
+    middle_layout = QHBoxLayout()
+    middle_layout.addLayout(left_layout)
+    middle_layout.addWidget(plotter_widget, 1)
+
+    # add everything to central layout
+    central_layout.addLayout(top_layout)
+    central_layout.addLayout(middle_layout)
+    central_layout.addLayout(bottom_layout)
 
     # reset camera
     self.plotter.reset_camera(bounds=(-OPT.GEOMETRY_SCALE, OPT.GEOMETRY_SCALE)*3)
     self.end_interaction_cb()
-
-    # add everything to central layout
-    central_layout.addLayout(toggles_layout)
-    central_layout.addWidget(plotter_widget, 1)
-    central_layout.addLayout(playback_layout)
 
   def setup_plotter(self, central_widget) -> QWidget:
     # create plotter
@@ -136,7 +141,7 @@ class MainWindow(QMainWindow):
 
     return plotter_widget
 
-  def setup_controls(self) -> tuple[QHBoxLayout, QHBoxLayout]:
+  def setup_controls(self) -> tuple[QHBoxLayout, QHBoxLayout, QVBoxLayout]:
     # play pause button
     def toggle_play(is_checked):
       OPT.autoplay = is_checked
@@ -354,38 +359,47 @@ class MainWindow(QMainWindow):
           current_force = 'None'
         self.forces_combo.setCurrentText(current_force)
 
-    # controls ui layout
-    playback_layout = QHBoxLayout()
-    playback_layout.addWidget(self.play_button)
-    playback_layout.addWidget(self.loop_btn)
-    playback_layout.addWidget(self.speed_combo)
-    playback_layout.addWidget(self.step_neg_btn)
-    playback_layout.addWidget(self.step_pos_btn)
-    playback_layout.addWidget(self.frame_slider)
 
-    toggle_layout = QHBoxLayout()
-    toggle_layout.addWidget(QLabel('Camera:'), 1)
-    toggle_layout.addWidget(self.cam_combo, 2)
-    toggle_layout.addWidget(QLabel('Background:'), 1)
-    toggle_layout.addWidget(self.bg_combo, 2)
-    toggle_layout.addWidget(QLabel('Toggles:'), 1)
+    top_layout = QHBoxLayout()
+    top_layout.addWidget(QLabel('Camera:'), 1)
+    top_layout.addWidget(self.cam_combo, 2)
+    top_layout.addWidget(QLabel('Background:'), 1)
+    top_layout.addWidget(self.bg_combo, 2)
+    top_layout.addStretch(100)
+
+    left_layout = QVBoxLayout()
+    left_layout.addSpacing(10)
+    add_divider(left_layout, spacing_before=0)
+    left_layout.addWidget(self.raxes_btn)
     if OPT.EARTH_AVAILABLE:
-      toggle_layout.addWidget(self.earth_btn, 2)
+      left_layout.addWidget(self.laxes_btn)
+    left_layout.addWidget(self.baxes_btn)
+    left_layout.addSpacing(10)
+    left_layout.addWidget(self.labels_btn)
+    add_divider(left_layout)
+    if OPT.EARTH_AVAILABLE:
+      left_layout.addWidget(self.earth_btn)
     if OPT.SUN_AVAILABLE:
-      toggle_layout.addWidget(self.sun_btn, 2)
-    toggle_layout.addWidget(self.raxes_btn, 2)
-    if OPT.EARTH_AVAILABLE:
-      toggle_layout.addWidget(self.laxes_btn, 2)
-    toggle_layout.addWidget(self.baxes_btn, 2)
-    toggle_layout.addWidget(self.labels_btn, 2)
+      left_layout.addWidget(self.sun_btn)
     if OPT.GEOMETRY_AVAILABLE:
-      toggle_layout.addWidget(self.body_mesh_btn, 2)
-      toggle_layout.addWidget(self.norm_btn, 1)
+      add_divider(left_layout)
+      left_layout.addWidget(self.body_mesh_btn)
+      left_layout.addWidget(self.norm_btn)
     if OPT.FORCES_AVAILABLE:
-      toggle_layout.addWidget(self.forces_combo, 1)
-    toggle_layout.addStretch(100)
+      left_layout.addWidget(self.forces_combo)
+    left_layout.addStretch()
 
-    return toggle_layout, playback_layout
+
+    bottom_layout = QHBoxLayout()
+    bottom_layout.addWidget(self.play_button)
+    bottom_layout.addWidget(self.loop_btn)
+    bottom_layout.addWidget(self.speed_combo)
+    bottom_layout.addWidget(self.step_neg_btn)
+    bottom_layout.addWidget(self.step_pos_btn)
+    bottom_layout.addWidget(self.frame_slider)
+
+
+    return top_layout, bottom_layout, left_layout
 
   def update_frame(self, frame=None):
     # simulation time

@@ -1,6 +1,7 @@
 import pyvista as pv
 import numpy as np
 import json
+from qtpy.QtWidgets import QFrame
 
 from types import SimpleNamespace
 
@@ -353,7 +354,6 @@ class Sun:
           light.switch_off()
         else:
           light.switch_on()
-        
 
 
 def q_to_dcm(q):
@@ -370,3 +370,12 @@ def q_to_dcm(q):
 
   dcm = (qs**2 - np.linalg.norm(qv)**2)*np.eye(3) - 2*qs*skew(qv) + 2*np.outer(qv, qv)
   return dcm
+
+def add_divider(layout, orientation=QFrame.HLine, spacing_before=10, spacing_after=10):
+  divider = QFrame()
+  divider.setFrameShape(orientation)
+  divider.setFrameShadow(QFrame.Sunken)
+
+  layout.addSpacing(spacing_before)
+  layout.addWidget(divider)
+  layout.addSpacing(spacing_after)
