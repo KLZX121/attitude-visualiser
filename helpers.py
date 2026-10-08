@@ -8,9 +8,12 @@ from types import SimpleNamespace
 def read_state_data(filepath, i_q, i_r, i_v) -> tuple[list[float], list[float], list[float]]:
   # formatted as a n(t) x n(x) json
   x_list = []
-  with open(filepath, 'r') as f:
-    json_str = json.load(f)
-    x_list = np.array(json_str)
+  try:
+    with open(filepath, 'r') as f:
+      json_str = json.load(f)
+      x_list = np.array(json_str)
+  except:
+    return (None, None, None)
 
   # compute dcms
 
@@ -55,9 +58,7 @@ def read_geometry_data(filepath, return_type=None) -> np.ndarray | SimpleNamespa
       # return json object (SimpleNamespace)
         return data
   except FileNotFoundError:
-    print(f'The file \'{filepath}\' could not be found. Make sure your file is named and placed correctly.')
-
-  return None
+    return None
 
 def read_surface_data(filepath) -> SimpleNamespace:
   try:
@@ -65,9 +66,7 @@ def read_surface_data(filepath) -> SimpleNamespace:
       data = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
       return data
   except FileNotFoundError:
-    print(f'The file \'{filepath}\' could not be found. Make sure your file is named and placed correctly.')
-
-  return None
+    return None
 
 def read_r_sun_data(filepath) -> list[list[float]]:
   try:
@@ -75,9 +74,7 @@ def read_r_sun_data(filepath) -> list[list[float]]:
       data = json.load(f)
       return data
   except FileNotFoundError:
-    print(f'The file \'{filepath}\' could not be found. Make sure your file is named and placed correctly.')
-    
-  return None
+    return None
 
 
 def get_lvlh(r, v) -> np.ndarray:
@@ -387,6 +384,6 @@ def format_time(t, format):
   elif format == 'min':
     time_str = str(f'{(t/60):.3f} m')
   elif format == 'hr:min:sec':
-    time_str = str(f'{((t // 3600) % 60):.0f} h {((t // 60) % 60):.0f} m {(t % 60):.3f} s')
+    time_str = str(f'{((t // 3600) % 60):.0f} h {((t // 60) % 60):.0f} m {(t % 60):.2f} s')
 
   return time_str

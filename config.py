@@ -1,14 +1,17 @@
 from dataclasses import dataclass
+from pathlib import Path
 
 @dataclass
 class OPT:
   WINDOW_SIZE: tuple[int, int] = (800, 600)
-  
-  FILEPATH_STATE: str = 'xdata.json'
-  FILEPATH_GEOMETRY: str = 'geometry.json'
-  FILEPATH_SURFACE_FORCES: str = 'surfdata.json'
-  FILEPATH_SUN_POS: str = 'rs.json'
 
+  FILEPATH: Path = Path(__file__).resolve().parent
+  FILENAME_STATE: str = 'xdata.json'
+  FILENAME_GEOMETRY: str = 'geometry.json'
+  FILENAME_SURFACE_FORCES: str = 'surfdata.json'
+  FILENAME_SUN_POS: str = 'rs.json'
+
+  FILE_AVAILABLE: bool = False
   EARTH_AVAILABLE: bool = False
   GEOMETRY_AVAILABLE: bool = False
   FORCES_AVAILABLE: bool = False

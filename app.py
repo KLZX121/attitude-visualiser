@@ -2,6 +2,7 @@ import sys
 import time
 import pyvista as pv
 import numpy as np
+from pathlib import Path
 from helpers import *
 from config import OPT
 
@@ -11,6 +12,7 @@ from PyQt6.QtGui import QDoubleValidator
 from qtpy.QtWidgets import *
 
 #TODO: add export option (and settings)
+#TODO: add option to choose input file dir
 
 class MainWindow(QMainWindow):
   user_interacting = False
@@ -21,24 +23,64 @@ class MainWindow(QMainWindow):
     self.setWindowTitle('Attitude Visualiser v0.1')
     self.resize(OPT.WINDOW_SIZE[0], OPT.WINDOW_SIZE[1])
 
+    self.setup_window()
+
+  def setup_window(self):
+    def message_box(msg_type, input=None):
+      if msg_type == 0:
+        QMessageBox.warning(
+          self,
+          'File Not Found',
+          f'The file \'{input}\' could not be found. Make sure your file is named and placed correctly.'
+        )
+      elif msg_type == 1:
+        QMessageBox.information(
+          self,
+          'Data Not Found',
+          'Orbital position and velocity data could not be found.'
+        )
+
+    lost_files = []
+
     # read data
-    self.dcm_list, self.r_list, self.v_list = read_state_data(OPT.FILEPATH_STATE, OPT.I_Q, OPT.I_R, OPT.I_V)
-    self.N_FRAMES = len(self.dcm_list)
+    self.dcm_list, self.r_list, self.v_list = read_state_data(OPT.FILEPATH / OPT.FILENAME_STATE, OPT.I_Q, OPT.I_R, OPT.I_V)
+
+    if self.dcm_list:
+      self.N_FRAMES = len(self.dcm_list)
+      OPT.FILE_AVAILABLE = True
+    else:
+      OPT.FILE_AVAILABLE = False
+      lost_files.append(OPT.FILENAME_STATE)
 
     if self.r_list and self.v_list:
       OPT.EARTH_AVAILABLE = True
+    else:
+      OPT.EARTH_AVAILABLE = False
+      message_box(1)
 
-    self.surface_forces = read_surface_data(OPT.FILEPATH_SURFACE_FORCES)
+    self.surface_forces = read_surface_data(OPT.FILEPATH / OPT.FILENAME_SURFACE_FORCES)
     if self.surface_forces:
       OPT.FORCES_AVAILABLE = True
+    else:
+      OPT.FORCES_AVAILABLE = False
+      lost_files.append(OPT.FILENAME_SURFACE_FORCES)
 
-    self.geometry_data = read_geometry_data(OPT.FILEPATH_GEOMETRY)
+    self.geometry_data = read_geometry_data(OPT.FILEPATH / OPT.FILENAME_GEOMETRY)
     if self.geometry_data:
       OPT.GEOMETRY_AVAILABLE = True
+    else:
+      OPT.GEOMETRY_AVAILABLE = False
+      lost_files.append(OPT.FILENAME_GEOMETRY)
 
-    self.r_sun_list = read_r_sun_data(OPT.FILEPATH_SUN_POS)
+    self.r_sun_list = read_r_sun_data(OPT.FILEPATH / OPT.FILENAME_SUN_POS)
     if self.r_sun_list:
       OPT.SUN_AVAILABLE = True
+    else:
+      OPT.SUN_AVAILABLE = False
+      lost_files.append(OPT.FILENAME_SUN_POS)
+
+    if lost_files:
+      message_box(0, lost_files)
 
     # create central widget and layout
     central_widget = QWidget()
@@ -49,21 +91,12 @@ class MainWindow(QMainWindow):
     plotter_widget = self.setup_plotter(central_widget)
     
     # setup control buttons and settings
-    top_layout, bottom_layout, left_layout = self.setup_controls()
-
-    # middle layout
-    middle_layout = QHBoxLayout()
-    middle_layout.addLayout(left_layout)
-    middle_layout.addWidget(plotter_widget, 1)
-
-    # add everything to central layout
-    central_layout.addLayout(top_layout)
-    central_layout.addLayout(middle_layout)
-    central_layout.addLayout(bottom_layout)
+    self.setup_controls(central_layout, plotter_widget)
 
     # reset camera
     self.plotter.reset_camera(bounds=(-OPT.GEOMETRY_SCALE, OPT.GEOMETRY_SCALE)*3)
     self.end_interaction_cb()
+
 
   def setup_plotter(self, central_widget) -> QWidget:
     # create plotter
@@ -141,7 +174,7 @@ class MainWindow(QMainWindow):
 
     return plotter_widget
 
-  def setup_controls(self) -> tuple[QHBoxLayout, QVBoxLayout, QVBoxLayout]:
+  def setup_controls(self, central_layout, plotter_widget):
     # play pause button
     def toggle_play(is_checked):
       OPT.autoplay = is_checked
@@ -252,6 +285,26 @@ class MainWindow(QMainWindow):
     self.time_combo.addItems(OPT.TIME_FORMATS)
     self.time_combo.setCurrentText(OPT.time_format)
     self.time_combo.currentTextChanged.connect(switch_time_format)
+
+    # directory
+    def open_dir_dialog():
+      dir_path = Path(QFileDialog.getExistingDirectory()).resolve()
+      if dir_path:
+        OPT.FILEPATH = dir_path
+        self.dir_btn.setText(f'/{str(OPT.FILEPATH.name)}')
+
+    self.dir_btn = QPushButton(f'/{str(OPT.FILEPATH.name)}')
+    self.dir_btn.clicked.connect(open_dir_dialog)
+
+    def reread_dir():
+      if OPT.FILEPATH:
+        self.plotter.close()
+        QApplication.processEvents()
+
+        self.setup_window()
+    self.read_btn = QPushButton('Read Data')
+    self.read_btn.clicked.connect(reread_dir)
+
 
     # earth toggle
     def toggle_earth(is_checked):
@@ -386,7 +439,11 @@ class MainWindow(QMainWindow):
     top_layout.addWidget(self.bg_combo, 2)
     top_layout.addWidget(QLabel('Time Format:'), 1)
     top_layout.addWidget(self.time_combo, 2)
+    top_layout.addWidget(QLabel('Directory:'), 1)
+    top_layout.addWidget(self.dir_btn, 2)
+    top_layout.addWidget(self.read_btn, 2)
     top_layout.addStretch(100)
+
 
     left_layout = QVBoxLayout()
     left_layout.addSpacing(10)
@@ -406,9 +463,10 @@ class MainWindow(QMainWindow):
       add_divider(left_layout)
       left_layout.addWidget(self.body_mesh_btn)
       left_layout.addWidget(self.norm_btn)
-    if OPT.FORCES_AVAILABLE:
-      left_layout.addWidget(self.forces_combo)
+      if OPT.FORCES_AVAILABLE:
+        left_layout.addWidget(self.forces_combo)
     left_layout.addStretch()
+
 
     bot_top = QHBoxLayout()
     bot_top.addWidget(self.play_button)
@@ -429,10 +487,22 @@ class MainWindow(QMainWindow):
     add_divider(bottom_layout, spacing_before=0, spacing_after=0)
     bottom_layout.addLayout(bot_bot)
 
+    # middle layout
+    middle_layout = QHBoxLayout()
+    middle_layout.addLayout(left_layout)
+    middle_layout.addWidget(plotter_widget, 1)
+
+    # add everything to central layout
+    central_layout.addLayout(top_layout)
+    central_layout.addLayout(middle_layout)
+    central_layout.addLayout(bottom_layout)
 
     return top_layout, bottom_layout, left_layout
 
   def update_frame(self, frame=None):
+    if not OPT.FILE_AVAILABLE:
+      return
+
     # simulation time
     if not frame:
       frame = self.frame_slider.value()
@@ -442,17 +512,10 @@ class MainWindow(QMainWindow):
     self.hud_label.adjustSize()
 
     dcm = self.dcm_list[frame-1]
-    r = self.r_list[frame-1]
-    v = self.v_list[frame-1]
 
     # update body axes orientation
     if OPT.show_body_axes:
       self.body_axes.rotate_mesh(dcm, OPT.show_axes_labels)
-
-    # update lvlh axes orientation
-    if OPT.show_lvlh_axes:
-      dcm_lvlh = get_lvlh(r, v)
-      self.lvlh_axes.rotate_mesh(dcm_lvlh, OPT.show_axes_labels)
 
     # update satellite body orientation
     if OPT.GEOMETRY_AVAILABLE and OPT.show_body_mesh:
@@ -465,11 +528,14 @@ class MainWindow(QMainWindow):
     if OPT.SUN_AVAILABLE and OPT.show_sun:
       r_s = self.r_sun_list[frame-1]
       self.sun.update_position(r_s, OPT.SUN_DISTANCE)
-      
 
     if OPT.EARTH_AVAILABLE:
       r = self.r_list[frame-1]
       v = self.v_list[frame-1]
+
+      if OPT.show_lvlh_axes:
+        dcm_lvlh = get_lvlh(r, v)
+        self.lvlh_axes.rotate_mesh(dcm_lvlh, OPT.show_axes_labels)
 
       u_r = r / np.linalg.norm(r)
       u_v = v / np.linalg.norm(v)
@@ -578,11 +644,13 @@ class MainWindow(QMainWindow):
   def end_interaction_cb(self, *_):
     self.user_interacting = False
     self.ref_cam_pos = np.array(self.plotter.camera.position)
-    self.ref_earth_pos = np.array(self.earth.actor.position)
+    if OPT.EARTH_AVAILABLE:
+      self.ref_earth_pos = np.array(self.earth.actor.position)
 
-    dcm = self.dcm_list[self.frame_slider.value()-1]
-    self.ref_cam_pos_body = dcm @ np.array(self.plotter.camera.position)
-    self.ref_cam_up_body = dcm @ np.array(self.plotter.camera.up)
+    if OPT.FILE_AVAILABLE:
+      dcm = self.dcm_list[self.frame_slider.value()-1]
+      self.ref_cam_pos_body = dcm @ np.array(self.plotter.camera.position)
+      self.ref_cam_up_body = dcm @ np.array(self.plotter.camera.up)
 
   def closeEvent(self, event):
     self.plotter.close()
