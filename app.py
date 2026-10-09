@@ -12,7 +12,7 @@ from PyQt6.QtGui import QDoubleValidator
 from qtpy.QtWidgets import *
 
 #TODO: add export option (and settings)
-#TODO: add option to choose input file dir
+#TODO: add auto geometry/force scaling
 
 class MainWindow(QMainWindow):
   user_interacting = False
@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
   def __init__(self):
     super().__init__()
 
-    self.setWindowTitle('Attitude Visualiser v0.1')
+    self.setWindowTitle('Attitude Visualiser v1')
     self.resize(OPT.WINDOW_SIZE[0], OPT.WINDOW_SIZE[1])
 
     self.setup_window()
@@ -49,6 +49,7 @@ class MainWindow(QMainWindow):
       self.N_FRAMES = len(self.dcm_list)
       OPT.FILE_AVAILABLE = True
     else:
+      self.N_FRAMES = 1
       OPT.FILE_AVAILABLE = False
       lost_files.append(OPT.FILENAME_STATE)
 
@@ -113,6 +114,7 @@ class MainWindow(QMainWindow):
     self.body_axes.toggle_visibility(OPT.show_body_axes, OPT.show_axes_labels)
 
     # lvlh frame
+    self.lvlh_axes = None
     if OPT.EARTH_AVAILABLE:
       self.lvlh_axes = Axes(frame_name='lvlh', cols=('cyan', 'magenta', 'yellow'))
       self.lvlh_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
@@ -363,7 +365,8 @@ class MainWindow(QMainWindow):
       OPT.show_axes_labels = is_checked
       self.eci_axes.toggle_visibility(OPT.show_eci_axes, OPT.show_axes_labels)
       self.body_axes.toggle_visibility(OPT.show_body_axes, OPT.show_axes_labels)
-      self.lvlh_axes.toggle_visibility(OPT.show_lvlh_axes, OPT.show_axes_labels)
+      if OPT.EARTH_AVAILABLE:
+        self.lvlh_axes.toggle_visibility(OPT.show_lvlh_axes, OPT.show_axes_labels)
       self.update_frame()
     self.labels_btn = QPushButton('Axes Labels', checkable=True, checked=OPT.show_axes_labels)
     self.labels_btn.toggled.connect(toggle_labels)
@@ -563,7 +566,7 @@ class MainWindow(QMainWindow):
         cam.up = u_r
       elif OPT.tracking_camera == 'Orbital' and not self.user_interacting:
         # arbitrary angle, fixed to orbital frame
-        if hasattr(self, 'ref_cam_pos'):
+        if hasattr(self, 'ref_cam_pos') and hasattr(self, 'ref_earth_pos'):
           ref_earth_dir = self.ref_earth_pos / np.linalg.norm(self.ref_earth_pos)
 
           axis = np.cross(ref_earth_dir, -u_r)
@@ -626,8 +629,9 @@ class MainWindow(QMainWindow):
       # axes labels
       if OPT.show_axes_labels:
         for axes in [self.eci_axes, self.body_axes, self.lvlh_axes]:
-          text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
-          text_property.SetColor(0, 0, 0)
+          if hasattr(axes, 'label_actor'):
+            text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
+            text_property.SetColor(0, 0, 0)
     else:
       self.hud_label.setStyleSheet('color: white;')
       axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
@@ -635,8 +639,9 @@ class MainWindow(QMainWindow):
       axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
       if OPT.show_axes_labels:
         for axes in [self.eci_axes, self.body_axes, self.lvlh_axes]:
-          text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
-          text_property.SetColor(1, 1, 1)
+          if hasattr(axes, 'label_actor'):
+            text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
+            text_property.SetColor(1, 1, 1)
 
   def start_interaction_cb(self, *_):
     self.user_interacting = True

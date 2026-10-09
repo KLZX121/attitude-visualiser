@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 from pathlib import Path
+import sys
 
 @dataclass
 class OPT:
   WINDOW_SIZE: tuple[int, int] = (800, 600)
 
-  FILEPATH: Path = Path(__file__).resolve().parent
+  FILEPATH: Path = Path(sys.executable).resolve().parent
   FILENAME_STATE: str = 'xdata.json'
   FILENAME_GEOMETRY: str = 'geometry.json'
   FILENAME_SURFACE_FORCES: str = 'surfdata.json'
