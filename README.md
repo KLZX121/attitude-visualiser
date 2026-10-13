@@ -1,9 +1,11 @@
 # Attitude Visualiser
 Python app for visualising and animating spacecraft attitude given the attitude state over time. Designed for use with the [ADCS simulation software](https://github.com/KLZX121/AUStronauts-ADCS) from the [UNSW AUStronauts CubeSat mission](https://unswaustronauts.vercel.app/).
 
-Attitude and other relevant data is read from user given JSON files.
+Attitude and other relevant data is read from user given JSON files. See [Steps](#steps-to-use) for more information.
 
+<p align="center">
 <img width="715" height="500" alt="image" src="https://github.com/user-attachments/assets/7271a931-4067-4c00-b8aa-fdddaa90bcef" />
+</p>
 
 ### Features
 **Attitude**
@@ -22,6 +24,14 @@ Attitude and other relevant data is read from user given JSON files.
 * View satellite attitude relative to the Sun
 * Includes Sun object and lighting effects
 
+### Steps to Use
+1. Setup input JSON files in a directory of your choice - see [below](#input-json-files) for more information
+2. In the app, choose the `Directory` using the button in the top bar and press `Read Data`
+3. Set the appropriate `Simulation Timestep` for your data
+4. Show/hide visualiser features to fit your analysis
+5. Press `Play`, use the playback slider, or press the `<`/`>` buttons to view each timestep
+
+---
 
 ### Settings
 Settings are available for switching background colour, toggling on/off the various axes and objects, and animation playback controls.
@@ -64,6 +74,8 @@ and `a.t` contain a list of aerodynamic forces and torques for each panel, and `
 **rs.json**
 
 Optional file for Sun position. Given as a 2D array: list of position vectors (ECI) at each timestep: `int[3][]`.
+
+---
 
 ### Example Files
 These are the first two timesteps of an example simulation from a 3U CubeSat.
