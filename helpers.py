@@ -40,33 +40,46 @@ def read_state_data(filepath, i_q, i_r, i_v) -> tuple[list[float], list[float], 
 
   return dcm_list, r_list, v_list
 
-def read_geometry_data(filepath, return_type=None) -> np.ndarray | SimpleNamespace | None:
+def read_geometry_data(filepath):
   try:
     with open(filepath, 'r') as f:
       data = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
 
-      if return_type == 'v':
-      # return a list of vertices
-        vertices = []
+      longest_length = 0
+      for surface in data.surfaces:
+        for vertex in surface.vertices:
+          mag = np.linalg.norm(vertex)
+          if mag > longest_length:
+            longest_length = mag
 
-        for surf in data.surfaces:
-          vertices.extend(surf.vertices)
-
-        vertices = np.array(vertices)
-        return vertices
-      else:
       # return json object (SimpleNamespace)
-        return data
+      return (data, longest_length)
   except FileNotFoundError:
-    return None
+    return (None, 1)
 
-def read_surface_data(filepath) -> SimpleNamespace:
+def read_surface_data(filepath) -> tuple[SimpleNamespace, float, float]:
   try:
-    with open(filepath, 'r') as f:
-      data = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
-      return data
+    with open(filepath, 'r') as mag:
+      data = json.load(mag, object_hook=lambda d: SimpleNamespace(**d))
+
+      # get min / max magnitudes of forces
+      aero_f_max = 0
+      srp_f_max = 0
+      for timestep in data:
+        for f_list in timestep.a.f:
+          for f in f_list:
+            mag = np.linalg.norm(f)
+            if mag > aero_f_max:
+              aero_f_max = mag
+        for f_list in timestep.s.f:
+          for f in f_list:
+            mag = np.linalg.norm(f)
+            if mag > srp_f_max:
+              srp_f_max = mag
+
+      return data, aero_f_max, srp_f_max
   except FileNotFoundError:
-    return None
+    return (None, None, None)
 
 def read_r_sun_data(filepath) -> list[list[float]]:
   try:
@@ -130,7 +143,7 @@ class Axes:
       show_points=False,
       shape_opacity=0,
       font_family='courier',
-      font_size=int(scale*50),
+      font_size=15,
       background_color='white',
       background_opacity=0.2,
       justification_horizontal='center',
@@ -235,39 +248,23 @@ class Body:
     for actor in self.surf_actors + self.norm_actors + self.aero_f_actors + self.srp_f_actors:
       actor.rotation_from(dcm.T)
 
-  def update_forces(self, surface_forces, dcm, aero_scale_factor, srp_scale_factor):    
-    forces = surface_forces.a.f
+  def update_forces(self, surface_forces, dcm, aero_scale_factor, srp_scale_factor, min_actor_scale):    
+    forces = surface_forces.a.f + surface_forces.s.f
     summed_forces = [np.linalg.norm(f) for f in forces]
 
-    for i, force_actor in enumerate(self.aero_f_actors):
+    for i, force_actor in enumerate(self.aero_f_actors + self.srp_f_actors):
       f = summed_forces[i]
-      uf = [0, 0, 0]
-      if f: uf = surface_forces.a.f[i] / f
 
-      actor_scale = f * aero_scale_factor
+      actor_scale = 0
+      if f > 1e-16:
+        actor_scale = f * (aero_scale_factor if i < (len(forces)/2) else srp_scale_factor) + min_actor_scale
 
       force_actor.scale = actor_scale
-      force_actor.position = self.surf_actors[i].center
+      force_actor.position = self.surf_actors[i % int(len(forces) / 2)].center
 
       # rotate in direction of uf
-      if any(uf):
-        rot = pv.Transform().rotate_vector(np.cross([1, 0, 0], uf), np.degrees(np.arccos(np.dot([1, 0, 0], uf))))
-        force_actor.rotation_from(dcm.T @ rot.rotation_matrix)
-
-    forces = surface_forces.s.f
-    summed_forces = [np.linalg.norm(f) for f in forces]
-
-    for i, force_actor in enumerate(self.srp_f_actors):
-      f = summed_forces[i]
       uf = [0, 0, 0]
-      if f: uf = surface_forces.s.f[i] / f
-
-      actor_scale = f * srp_scale_factor
-
-      force_actor.scale = actor_scale
-      force_actor.position = self.surf_actors[i].center
-
-      # rotate in direction of uf
+      if f: uf = forces[i] / f
       if any(uf):
         rot = pv.Transform().rotate_vector(np.cross([1, 0, 0], uf), np.degrees(np.arccos(np.dot([1, 0, 0], uf))))
         force_actor.rotation_from(dcm.T @ rot.rotation_matrix)

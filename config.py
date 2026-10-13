@@ -32,9 +32,11 @@ class OPT:
   EARTH_DISTANCE: float = 1.2
   SUN_SIZE: float = 1
   SUN_DISTANCE: float = 100
-  # order of magnitude of forces
-  AERO_FORCE_SCALE: float = 0.15*10**5
-  SRP_FORCE_SCALE: float = 0.3*10**6
+  # force actor sizes
+  FORCE_SCALE_MIN: float = GEOMETRY_SCALE*0.05
+  FORCE_SCALE_MAX: float = GEOMETRY_SCALE*0.5
+  AERO_FORCE_SCALE: float = 0
+  SRP_FORCE_SCALE: float = 0
   
 
   autoplay: bool = False

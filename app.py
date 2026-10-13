@@ -28,10 +28,10 @@ class MainWindow(QMainWindow):
   def setup_window(self):
     def message_box(msg_type, input=None):
       if msg_type == 0:
-        QMessageBox.warning(
+        QMessageBox.information(
           self,
           'File Not Found',
-          f'The file \'{input}\' could not be found. Make sure your file is named and placed correctly.'
+          f'The file/s: \'{input}\' could not be found. Make they are named and placed correctly.'
         )
       elif msg_type == 1:
         QMessageBox.information(
@@ -55,18 +55,21 @@ class MainWindow(QMainWindow):
 
     if self.r_list and self.v_list:
       OPT.EARTH_AVAILABLE = True
-    else:
+    elif self.dcm_list:
       OPT.EARTH_AVAILABLE = False
       message_box(1)
 
-    self.surface_forces = read_surface_data(OPT.FILEPATH / OPT.FILENAME_SURFACE_FORCES)
+    self.surface_forces, aero_f_max, srp_f_max = read_surface_data(OPT.FILEPATH / OPT.FILENAME_SURFACE_FORCES)
     if self.surface_forces:
       OPT.FORCES_AVAILABLE = True
+
+      OPT.AERO_FORCE_SCALE = (OPT.FORCE_SCALE_MAX - OPT.FORCE_SCALE_MIN)/aero_f_max
+      OPT.SRP_FORCE_SCALE = (OPT.FORCE_SCALE_MAX - OPT.FORCE_SCALE_MIN)/srp_f_max
     else:
       OPT.FORCES_AVAILABLE = False
       lost_files.append(OPT.FILENAME_SURFACE_FORCES)
 
-    self.geometry_data = read_geometry_data(OPT.FILEPATH / OPT.FILENAME_GEOMETRY)
+    self.geometry_data, OPT.GEOMETRY_SCALE = read_geometry_data(OPT.FILEPATH / OPT.FILENAME_GEOMETRY)
     if self.geometry_data:
       OPT.GEOMETRY_AVAILABLE = True
     else:
@@ -415,7 +418,7 @@ class MainWindow(QMainWindow):
 
       self.update_frame()
     self.forces_combo = QComboBox()
-    self.forces_combo.addItems(['None', 'Aero', 'SRP', 'All'])
+    self.forces_combo.addItems(['None', 'All', 'Aero', 'SRP'])
     self.forces_combo.currentTextChanged.connect(change_forces)
 
 
@@ -526,7 +529,7 @@ class MainWindow(QMainWindow):
 
       # update surface forces
       if OPT.FORCES_AVAILABLE and (OPT.show_aero_f or OPT.show_srp_f):
-        self.body_mesh.update_forces(self.surface_forces[frame-1], dcm, OPT.AERO_FORCE_SCALE, OPT.SRP_FORCE_SCALE)
+        self.body_mesh.update_forces(self.surface_forces[frame-1], dcm, OPT.AERO_FORCE_SCALE, OPT.SRP_FORCE_SCALE, OPT.FORCE_SCALE_MIN)
 
     if OPT.SUN_AVAILABLE and OPT.show_sun:
       r_s = self.r_sun_list[frame-1]
