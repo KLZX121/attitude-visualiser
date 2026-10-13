@@ -3,7 +3,7 @@ Python app for visualising and animating spacecraft attitude given the attitude 
 
 Attitude and other relevant data is read from user given JSON files.
 
-<img width="715" height="500" alt="image" src="https://github.com/user-attachments/assets/d25958b5-7670-4914-a68a-839687d19cd9" />
+<img width="715" height="500" alt="image" src="https://github.com/user-attachments/assets/7271a931-4067-4c00-b8aa-fdddaa90bcef" />
 
 ### Features
 **Attitude**
