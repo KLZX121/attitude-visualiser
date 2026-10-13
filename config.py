@@ -6,7 +6,7 @@ import sys
 class OPT:
   WINDOW_SIZE: tuple[int, int] = (800, 600)
 
-  FILEPATH: Path = Path(sys.executable).resolve().parent
+  filepath: Path = Path(sys.executable).resolve().parent
   FILENAME_STATE: str = 'xdata.json'
   FILENAME_GEOMETRY: str = 'geometry.json'
   FILENAME_SURFACE_FORCES: str = 'surfdata.json'
@@ -19,7 +19,7 @@ class OPT:
   SUN_AVAILABLE: bool = False
 
   # simulation stepsize (dt)
-  SIMULATION_TIMESTEP: int = 1
+  simulation_timestep: int = 1
   # indices of quaternion, orbital pos, and orbital vel in state data
   I_Q: tuple[int, int] = (6, 10)
   I_R: tuple[int, int] = (0, 3)

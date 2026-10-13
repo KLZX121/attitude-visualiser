@@ -132,8 +132,8 @@ class Axes:
       )
 
     # create axes labels
-    self.label_points_local = (scale * basis_vecs)*1.1
-    self.label_points = pv.PolyData(self.label_points_local.copy())
+    self.label_base_pos = (scale * basis_vecs)*1.2
+    self.label_points = pv.PolyData(self.label_base_pos.copy())
     self.label_points.point_data["label"] = [
       actor.name for actor in self.arrow_actors
     ]
@@ -143,7 +143,7 @@ class Axes:
       show_points=False,
       shape_opacity=0,
       font_family='courier',
-      font_size=15,
+      font_size=12,
       background_color='white',
       background_opacity=0.2,
       justification_horizontal='center',
@@ -157,7 +157,7 @@ class Axes:
 
     # positions of arrow tips for placing labels
     if show_labels:
-      tip_pts = (A @ self.label_points_local.T)
+      tip_pts = (A @ self.label_base_pos.T)
       self.label_points.points = tip_pts
 
   def toggle_visibility(self, show_axes, show_labels):
@@ -294,8 +294,8 @@ class Earth:
     self.u = -r / np.linalg.norm(r)
     self.actor.position = self.u*self.radius*dist
 
-  def toggle_visibility(self):
-    self.actor.visibility = not self.actor.visibility
+  def toggle_visibility(self, show_earth):
+    self.actor.visibility = show_earth
 
 
 class Sun:
@@ -329,11 +329,11 @@ class Sun:
 
     self.sun_light.position = self.actor.position
 
-  def toggle_visibility(self, plotter):
-    self.actor.visibility = not self.actor.visibility
+  def toggle_visibility(self, plotter, show_sun):
+    self.actor.visibility = show_sun
 
     # toggle sun lighting
-    if self.actor.visibility:
+    if show_sun:
       self.sun_light.switch_on()
     else:
       self.sun_light.switch_off()

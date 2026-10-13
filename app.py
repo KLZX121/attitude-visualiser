@@ -7,12 +7,9 @@ from helpers import *
 from config import OPT
 
 from pyvistaqt import QtInteractor
-from qtpy.QtCore import Qt, QTimer
+from qtpy.QtCore import Qt, QTimer, QSettings
 from PyQt6.QtGui import QDoubleValidator
 from qtpy.QtWidgets import *
-
-#TODO: add export option (and settings)
-#TODO: add auto geometry/force scaling
 
 class MainWindow(QMainWindow):
   user_interacting = False
@@ -26,6 +23,35 @@ class MainWindow(QMainWindow):
     self.setup_window()
 
   def setup_window(self):
+    settings = QSettings('AttitudeVisualiser', 'AttitudeVisualiser')
+    # load persistent settings
+    PERSISTENT_SETTINGS = [
+      'filepath',
+      'simulation_timestep',
+      'loop_playback',
+      'playback_speed',
+      'real_time',
+      'time_format',
+      'tracking_camera',
+      'background',
+      'show_eci_axes',
+      'show_body_axes',
+      'show_lvlh_axes',
+      'show_axes_labels',
+      'show_body_mesh',
+      'show_normals',
+      'show_aero_f',
+      'show_srp_f',
+      'show_earth',
+      'show_sun'
+    ]
+    for name in PERSISTENT_SETTINGS:
+      default = getattr(OPT, name)
+      if settings.contains(name):
+        setattr(OPT, name, settings.value(name, default, type=type(default)))
+
+
+    # read data
     def message_box(msg_type, input=None):
       if msg_type == 0:
         QMessageBox.information(
@@ -42,8 +68,7 @@ class MainWindow(QMainWindow):
 
     lost_files = []
 
-    # read data
-    self.dcm_list, self.r_list, self.v_list = read_state_data(OPT.FILEPATH / OPT.FILENAME_STATE, OPT.I_Q, OPT.I_R, OPT.I_V)
+    self.dcm_list, self.r_list, self.v_list = read_state_data(OPT.filepath / OPT.FILENAME_STATE, OPT.I_Q, OPT.I_R, OPT.I_V)
 
     if self.dcm_list:
       self.N_FRAMES = len(self.dcm_list)
@@ -59,7 +84,7 @@ class MainWindow(QMainWindow):
       OPT.EARTH_AVAILABLE = False
       message_box(1)
 
-    self.surface_forces, aero_f_max, srp_f_max = read_surface_data(OPT.FILEPATH / OPT.FILENAME_SURFACE_FORCES)
+    self.surface_forces, aero_f_max, srp_f_max = read_surface_data(OPT.filepath / OPT.FILENAME_SURFACE_FORCES)
     if self.surface_forces:
       OPT.FORCES_AVAILABLE = True
 
@@ -69,14 +94,14 @@ class MainWindow(QMainWindow):
       OPT.FORCES_AVAILABLE = False
       lost_files.append(OPT.FILENAME_SURFACE_FORCES)
 
-    self.geometry_data, OPT.GEOMETRY_SCALE = read_geometry_data(OPT.FILEPATH / OPT.FILENAME_GEOMETRY)
+    self.geometry_data, OPT.GEOMETRY_SCALE = read_geometry_data(OPT.filepath / OPT.FILENAME_GEOMETRY)
     if self.geometry_data:
       OPT.GEOMETRY_AVAILABLE = True
     else:
       OPT.GEOMETRY_AVAILABLE = False
       lost_files.append(OPT.FILENAME_GEOMETRY)
 
-    self.r_sun_list = read_r_sun_data(OPT.FILEPATH / OPT.FILENAME_SUN_POS)
+    self.r_sun_list = read_r_sun_data(OPT.filepath / OPT.FILENAME_SUN_POS)
     if self.r_sun_list:
       OPT.SUN_AVAILABLE = True
     else:
@@ -86,16 +111,20 @@ class MainWindow(QMainWindow):
     if lost_files:
       message_box(0, lost_files)
 
+
     # create central widget and layout
     central_widget = QWidget()
     central_layout = QVBoxLayout(central_widget)
     self.setCentralWidget(central_widget)
 
+
     # setup PyVista viewport
     plotter_widget = self.setup_plotter(central_widget)
+
     
     # setup control buttons and settings
-    self.setup_controls(central_layout, plotter_widget)
+    self.setup_controls(central_layout, plotter_widget, settings)
+
 
     # reset camera
     self.plotter.reset_camera(bounds=(-OPT.GEOMETRY_SCALE, OPT.GEOMETRY_SCALE)*3)
@@ -138,8 +167,7 @@ class MainWindow(QMainWindow):
     if OPT.EARTH_AVAILABLE:
       self.earth = Earth()
       self.earth.setup(self.r_list[0], OPT.EARTH_DISTANCE, OPT.GEOMETRY_SCALE*OPT.EARTH_SIZE, self.plotter)
-      if not OPT.show_earth:
-        self.earth.toggle_visibility()
+      self.earth.toggle_visibility(OPT.show_earth)
 
       # save camera position whenever user interacts
       # used for camera orbital tracking
@@ -158,7 +186,7 @@ class MainWindow(QMainWindow):
       self.sun.setup(self.r_sun_list[0], OPT.SUN_DISTANCE, OPT.GEOMETRY_SCALE*OPT.SUN_SIZE, self.plotter)
 
       if not OPT.show_sun:
-        self.sun.toggle_visibility(self.plotter)
+        self.sun.toggle_visibility(self.plotter, OPT.show_sun)
 
     # 16k starry skybox (Stars)
     skybox_texture = pv.examples.download_cubemap_space_16k().to_skybox()
@@ -179,7 +207,12 @@ class MainWindow(QMainWindow):
 
     return plotter_widget
 
-  def setup_controls(self, central_layout, plotter_widget):
+  def setup_controls(self, central_layout, plotter_widget, settings):
+    def save_persistent_setting(name):
+      value = getattr(OPT, name)
+      settings.setValue(name, value)
+
+
     # play pause button
     def toggle_play(is_checked):
       OPT.autoplay = is_checked
@@ -195,6 +228,8 @@ class MainWindow(QMainWindow):
     # toggle playback looping
     def toggle_loop(is_checked):
       OPT.loop_playback = is_checked
+      save_persistent_setting('loop_playback')
+
     self.loop_btn = QPushButton('Loop', checkable=True, checked=OPT.loop_playback)
     self.loop_btn.toggled.connect(toggle_loop)
 
@@ -206,10 +241,14 @@ class MainWindow(QMainWindow):
       else:
         OPT.real_time = False
         OPT.playback_speed = int(label[:-1])
+
+      save_persistent_setting('playback_speed')
+      save_persistent_setting('real_time')      
+
     self.speed_combo = QComboBox()
     self.speed_combo.addItem('Real Time')
     self.speed_combo.addItems([f'{speed}x' for speed in OPT.SPEEDS])
-    self.speed_combo.setCurrentText(f'{OPT.playback_speed}x')
+    self.speed_combo.setCurrentText('Real Time' if OPT.real_time else f'{OPT.playback_speed}x')
     self.speed_combo.currentTextChanged.connect(set_playback_speed)
 
     # playback slider
@@ -224,7 +263,7 @@ class MainWindow(QMainWindow):
         return
       elif is_timer and OPT.real_time:
         curr_time = time.perf_counter()
-        if (curr_time - OPT.real_time_last_update) >= OPT.SIMULATION_TIMESTEP:
+        if (curr_time - OPT.real_time_last_update) >= OPT.simulation_timestep:
           OPT.real_time_last_update = curr_time
         else:
           return
@@ -257,10 +296,12 @@ class MainWindow(QMainWindow):
     # change simulation timestep
     def update_dt(text):
       if text:
-        OPT.SIMULATION_TIMESTEP = float(text)
+        OPT.simulation_timestep = float(text)
+        save_persistent_setting('simulation_timestep')
+
     self.dt_input = QLineEdit()
     self.dt_input.setValidator(QDoubleValidator(bottom=0))
-    self.dt_input.setText(str(OPT.SIMULATION_TIMESTEP))
+    self.dt_input.setText(str(OPT.simulation_timestep))
     self.dt_input.textChanged.connect(update_dt)
     self.dt_input.setMaximumWidth(80)
 
@@ -268,6 +309,8 @@ class MainWindow(QMainWindow):
     def switch_cam(label):
       OPT.tracking_camera = label
       self.update_frame()
+      save_persistent_setting('tracking_camera')
+
     self.cam_combo = QComboBox()
     self.cam_combo.addItems(OPT.CAM_LABELS)
     self.cam_combo.setCurrentText(OPT.tracking_camera)
@@ -277,6 +320,8 @@ class MainWindow(QMainWindow):
     def switch_bg(label):
       OPT.background = label
       self.change_bg(OPT.background)
+      save_persistent_setting('background')
+
     self.bg_combo = QComboBox()
     self.bg_combo.addItems(OPT.BACKGROUNDS)
     self.bg_combo.setCurrentText(OPT.background)
@@ -286,6 +331,8 @@ class MainWindow(QMainWindow):
     def switch_time_format(label):
       OPT.time_format = label
       self.update_frame()
+      save_persistent_setting('time_format')
+
     self.time_combo = QComboBox()
     self.time_combo.addItems(OPT.TIME_FORMATS)
     self.time_combo.setCurrentText(OPT.time_format)
@@ -295,14 +342,16 @@ class MainWindow(QMainWindow):
     def open_dir_dialog():
       dir_path = Path(QFileDialog.getExistingDirectory()).resolve()
       if dir_path:
-        OPT.FILEPATH = dir_path
-        self.dir_btn.setText(f'/{str(OPT.FILEPATH.name)}')
+        OPT.filepath = dir_path
+        self.dir_btn.setText(f'/{str(OPT.filepath.name)}')
+        save_persistent_setting('filepath')
 
-    self.dir_btn = QPushButton(f'/{str(OPT.FILEPATH.name)}')
+
+    self.dir_btn = QPushButton(f'/{str(OPT.filepath.name)}')
     self.dir_btn.clicked.connect(open_dir_dialog)
 
     def reread_dir():
-      if OPT.FILEPATH:
+      if OPT.filepath:
         self.plotter.close()
         QApplication.processEvents()
 
@@ -314,16 +363,20 @@ class MainWindow(QMainWindow):
     # earth toggle
     def toggle_earth(is_checked):
       OPT.show_earth = is_checked
-      self.earth.toggle_visibility()
+      self.earth.toggle_visibility(OPT.show_earth)
       self.update_frame()
+      save_persistent_setting('show_earth')
+
     self.earth_btn = QPushButton('Earth', checkable=True, checked=OPT.show_earth)
     self.earth_btn.toggled.connect(toggle_earth)
 
     # sun toggle
     def toggle_sun(is_checked):
       OPT.show_sun = is_checked
-      self.sun.toggle_visibility(self.plotter)
+      self.sun.toggle_visibility(self.plotter, OPT.show_sun)
       self.update_frame()
+      save_persistent_setting('show_sun')
+
     self.sun_btn = QPushButton('Sun', checkable=True, checked=OPT.show_sun)
     self.sun_btn.toggled.connect(toggle_sun)
 
@@ -332,6 +385,8 @@ class MainWindow(QMainWindow):
       OPT.show_eci_axes = is_checked
       self.eci_axes.toggle_visibility(OPT.show_eci_axes, OPT.show_axes_labels)
       self.update_frame()
+      save_persistent_setting('show_eci_axes')
+
     self.raxes_btn = QPushButton(
       'ECI Axes',
       checkable=True,
@@ -344,6 +399,8 @@ class MainWindow(QMainWindow):
       OPT.show_body_axes = is_checked
       self.body_axes.toggle_visibility(OPT.show_body_axes, OPT.show_axes_labels)
       self.update_frame()
+      save_persistent_setting('show_body_axes')
+
     self.baxes_btn = QPushButton(
       'Body Axes',
       checkable=True,
@@ -356,6 +413,8 @@ class MainWindow(QMainWindow):
       OPT.show_lvlh_axes = is_checked
       self.lvlh_axes.toggle_visibility(OPT.show_lvlh_axes, OPT.show_axes_labels)
       self.update_frame()
+      save_persistent_setting('show_lvlh_axes')
+
     self.laxes_btn = QPushButton(
       'LVLH Axes',
       checkable=True,
@@ -371,6 +430,8 @@ class MainWindow(QMainWindow):
       if OPT.EARTH_AVAILABLE:
         self.lvlh_axes.toggle_visibility(OPT.show_lvlh_axes, OPT.show_axes_labels)
       self.update_frame()
+      save_persistent_setting('show_axes_labels')
+
     self.labels_btn = QPushButton('Axes Labels', checkable=True, checked=OPT.show_axes_labels)
     self.labels_btn.toggled.connect(toggle_labels)
 
@@ -388,6 +449,8 @@ class MainWindow(QMainWindow):
         self.forces_combo.setEnabled(False)
 
       self.update_frame()
+      save_persistent_setting('show_body_mesh')
+
     self.body_mesh_btn = QPushButton(
       'Satellite',
       checkable=True
@@ -402,6 +465,8 @@ class MainWindow(QMainWindow):
         self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f)
 
       self.update_frame()
+      save_persistent_setting('show_normals')
+
     self.norm_btn = QPushButton(
       'Normals',
       checkable=True,
@@ -417,6 +482,9 @@ class MainWindow(QMainWindow):
       self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f)
 
       self.update_frame()
+      save_persistent_setting('show_aero_f')
+      save_persistent_setting('show_srp_f')
+
     self.forces_combo = QComboBox()
     self.forces_combo.addItems(['None', 'All', 'Aero', 'SRP'])
     self.forces_combo.currentTextChanged.connect(change_forces)
@@ -513,7 +581,7 @@ class MainWindow(QMainWindow):
     if not frame:
       frame = self.frame_slider.value()
 
-    t = (frame-1)*OPT.SIMULATION_TIMESTEP
+    t = (frame-1)*OPT.simulation_timestep
     self.hud_label.setText(f'Frame: {frame} | t = {format_time(t, OPT.time_format)}')
     self.hud_label.adjustSize()
 
@@ -630,21 +698,19 @@ class MainWindow(QMainWindow):
       axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(0, 0, 0)
 
       # axes labels
-      if OPT.show_axes_labels:
-        for axes in [self.eci_axes, self.body_axes, self.lvlh_axes]:
-          if hasattr(axes, 'label_actor'):
-            text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
-            text_property.SetColor(0, 0, 0)
+      for axes in [self.eci_axes, self.body_axes, self.lvlh_axes]:
+        if hasattr(axes, 'label_actor'):
+          text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
+          text_property.SetColor(0, 0, 0)
     else:
       self.hud_label.setStyleSheet('color: white;')
       axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
       axes.GetYAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
       axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
-      if OPT.show_axes_labels:
-        for axes in [self.eci_axes, self.body_axes, self.lvlh_axes]:
-          if hasattr(axes, 'label_actor'):
-            text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
-            text_property.SetColor(1, 1, 1)
+      for axes in [self.eci_axes, self.body_axes, self.lvlh_axes]:
+        if hasattr(axes, 'label_actor'):
+          text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
+          text_property.SetColor(1, 1, 1)
 
   def start_interaction_cb(self, *_):
     self.user_interacting = True
