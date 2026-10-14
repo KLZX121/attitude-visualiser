@@ -43,6 +43,7 @@ def read_state_data(filepath, i_q, i_r, i_v) -> tuple[list[float], list[float], 
 def read_geometry_data(filepath):
   try:
     with open(filepath, 'r') as f:
+      # return json object (SimpleNamespace)
       data = json.load(f, object_hook=lambda d: SimpleNamespace(**d))
 
       longest_length = 0
@@ -52,7 +53,6 @@ def read_geometry_data(filepath):
           if mag > longest_length:
             longest_length = mag
 
-      # return json object (SimpleNamespace)
       return (data, longest_length)
   except FileNotFoundError:
     return (None, 1)
@@ -200,11 +200,11 @@ class Body:
 
       normal_mesh = pv.Arrow(start=surface_obj.centroid, direction=surface_obj.normal, scale=0.03)
       arrow_col = None
-      if '_x_'in surface_obj.name:
+      if np.abs(surface_obj.normal).tolist() == [1, 0, 0]:
         arrow_col = 'red'
-      elif '_y_' in surface_obj.name:
+      elif np.abs(surface_obj.normal).tolist() == [0, 1, 0]:
         arrow_col = 'green'
-      elif '_z_' in surface_obj.name:
+      elif np.abs(surface_obj.normal).tolist() == [0, 0, 1]:
         arrow_col = 'blue'
         
       norm_actor = plotter.add_mesh(normal_mesh, color=arrow_col, lighting=False)

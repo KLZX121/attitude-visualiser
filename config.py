@@ -34,7 +34,7 @@ class OPT:
   SUN_DISTANCE: float = 100
   # force actor sizes
   FORCE_SCALE_MIN: float = GEOMETRY_SCALE*0.05
-  FORCE_SCALE_MAX: float = GEOMETRY_SCALE*0.5
+  FORCE_SCALE_MAX: float = GEOMETRY_SCALE*0.3
   AERO_FORCE_SCALE: float = 0
   SRP_FORCE_SCALE: float = 0
   
