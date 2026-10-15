@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
   def __init__(self):
     super().__init__()
 
-    self.setWindowTitle('Attitude Visualiser v1')
+    self.setWindowTitle('Attitude Visualiser v1.1')
     self.resize(OPT.WINDOW_SIZE[0], OPT.WINDOW_SIZE[1])
 
     self.setup_window(read_data=True)
@@ -45,6 +45,8 @@ class MainWindow(QMainWindow):
       'show_axes_labels',
       'show_body_mesh',
       'show_normals',
+      'show_edges',
+      'transparent',
       'show_aero_f',
       'show_srp_f',
       'show_earth',
@@ -150,10 +152,8 @@ class MainWindow(QMainWindow):
     # plot satellite body
     if OPT.GEOMETRY_AVAILABLE:              
       self.body_mesh = Body(self.geometry_data)
-      self.body_mesh.setup(self.plotter, OPT.show_normals, OPT.FORCES_AVAILABLE, OPT.show_aero_f, OPT.show_srp_f)
-
-      if not OPT.show_body_mesh:
-        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f)
+      self.body_mesh.setup(self.plotter, OPT.FORCES_AVAILABLE)
+      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
 
     # plot earth
     if OPT.EARTH_AVAILABLE:
@@ -432,14 +432,12 @@ class MainWindow(QMainWindow):
     # satellite body toggle
     def toggle_body_mesh(is_checked):
       OPT.show_body_mesh = is_checked
-      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f)
+      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
 
-      if OPT.show_body_mesh: 
-        self.norm_btn.setEnabled(True)
-        self.forces_combo.setEnabled(True)
-      else:
-        self.norm_btn.setEnabled(False)
-        self.forces_combo.setEnabled(False)
+      self.norm_btn.setEnabled(OPT.show_body_mesh)
+      self.edge_btn.setEnabled(OPT.show_body_mesh)
+      self.transparency_btn.setEnabled(OPT.show_body_mesh)
+      self.forces_combo.setEnabled(OPT.show_body_mesh)
 
       self.update_frame()
       save_persistent_setting('show_body_mesh')
@@ -455,7 +453,7 @@ class MainWindow(QMainWindow):
       OPT.show_normals = is_checked
 
       if hasattr(self, 'body_mesh'):
-        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f)
+        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
 
       self.update_frame()
       save_persistent_setting('show_normals')
@@ -467,12 +465,45 @@ class MainWindow(QMainWindow):
     )
     self.norm_btn.toggled.connect(toggle_norms)
 
+    # satellite mesh edges
+    def toggle_edges(is_checked):
+      OPT.show_edges = is_checked
+
+      if hasattr(self, 'body_mesh'):
+        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
+
+      self.update_frame()
+      save_persistent_setting('show_edges')
+    self.edge_btn = QPushButton(
+      'Edges',
+      checkable=True,
+      enabled=OPT.show_body_mesh
+    )
+    self.edge_btn.toggled.connect(toggle_edges)
+
+    # transparency
+    def toggle_transparency(is_checked):
+      OPT.transparent = is_checked
+
+      if hasattr(self, 'body_mesh'):
+        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
+
+      self.update_frame()
+      save_persistent_setting('transparent')
+    self.transparency_btn = QPushButton(
+      'Transparency',
+      checkable=True,
+      enabled=OPT.show_body_mesh
+    )
+    self.transparency_btn.toggled.connect(toggle_transparency)
+
+
     # satellite forces combo box
     def change_forces(option):
       OPT.show_aero_f = any(sub in option for sub in ['Aero', 'All'])
       OPT.show_srp_f = any(sub in option for sub in ['SRP', 'All'])
 
-      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f)
+      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
 
       self.update_frame()
       save_persistent_setting('show_aero_f')
@@ -486,8 +517,10 @@ class MainWindow(QMainWindow):
     if OPT.GEOMETRY_AVAILABLE:
       self.body_mesh_btn.setChecked(OPT.show_body_mesh)
       self.norm_btn.setChecked(OPT.show_normals)
+      self.edge_btn.setChecked(OPT.show_edges)
+      self.transparency_btn.setChecked(OPT.transparent)
+
       if OPT.FORCES_AVAILABLE:
-        #current_force = ''
         if OPT.show_srp_f and OPT.show_aero_f:
           current_force = 'All'
         elif OPT.show_aero_f:
@@ -548,6 +581,8 @@ class MainWindow(QMainWindow):
       add_divider(left_layout)
       left_layout.addWidget(self.body_mesh_btn)
       left_layout.addWidget(self.norm_btn)
+      left_layout.addWidget(self.edge_btn)
+      left_layout.addWidget(self.transparency_btn)
       if OPT.FORCES_AVAILABLE:
         left_layout.addWidget(self.forces_combo)
     left_layout.addStretch()
@@ -742,6 +777,8 @@ class MainWindow(QMainWindow):
     else:
       self.plotter.open_gif(str(output_path), fps=fps)
 
+    start_time = time.perf_counter()
+
     for frame in range(start, end+1, speed):
       output(f'Rendering: {frame}/{end}', replace_line=True)
       self.update_frame(frame)
@@ -759,7 +796,9 @@ class MainWindow(QMainWindow):
     self.plotter.close()
     QApplication.processEvents()
 
-    output(f'\nRender output at: {output_path}')
+    end_time = time.perf_counter() - start_time
+    output(f'\nRendering complete: {end_time}s elapsed')
+    output(f'Render output at: {output_path}')
 
     self.setup_window(read_data=False)
 

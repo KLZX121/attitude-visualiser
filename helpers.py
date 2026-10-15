@@ -178,7 +178,7 @@ class Body:
     self.aero_f_actors = []
     self.srp_f_actors = []
 
-  def setup(self, plotter, show_normals, add_force_actors, show_aero_f, show_srp_f):
+  def setup(self, plotter, add_force_actors):
     for surface_obj in self.geometry.surfaces:
       # convert vertex data to PolyData
       vertices = pv.PolyData(surface_obj.vertices)
@@ -192,9 +192,10 @@ class Body:
       surf_actor = plotter.add_mesh(
         surface_mesh,
         color=mesh_col,
-        ambient=0.05,
+        ambient=0.15,
         diffuse=0.8,
-        specular=0.5
+        specular=0.5,
+        show_edges=True
       )
       self.surf_actors.append(surf_actor)
 
@@ -209,7 +210,6 @@ class Body:
         
       norm_actor = plotter.add_mesh(normal_mesh, color=arrow_col, lighting=False)
       self.norm_actors.append(norm_actor)
-      norm_actor.visibility = show_normals
 
       # surface force actors
       if add_force_actors:
@@ -217,17 +217,17 @@ class Body:
 
         aero_f_actor = plotter.add_mesh(arrow_mesh, color='dodger_blue', lighting=False)
         aero_f_actor.scale = 0
-        aero_f_actor.visibility = show_aero_f
         self.aero_f_actors.append(aero_f_actor)
 
         srp_f_actor = plotter.add_mesh(arrow_mesh, color='gold', lighting=False)
         srp_f_actor.scale = 0
-        srp_f_actor.visibility = show_srp_f
         self.srp_f_actors.append(srp_f_actor)
 
-  def toggle_visibility(self, show_surf, show_norms, show_aero_f, show_srp_f):
+  def toggle_visibility(self, show_surf, show_norms, show_aero_f, show_srp_f, show_edges, transparent):
     for actor in self.surf_actors:
       actor.visibility = show_surf
+      actor.GetProperty().SetEdgeVisibility(show_edges)
+      actor.GetProperty().SetOpacity(0.5 if transparent else 1)
     for actor in self.norm_actors:
       if not show_surf:
         actor.visibility = False
@@ -284,7 +284,7 @@ class Earth:
       earth_mesh,
       texture=earth_texture,
       smooth_shading=True,
-      ambient=0.1
+      ambient=0.15
     )
     self.update_position(r, dist)
 
@@ -313,7 +313,7 @@ class Sun:
       position=self.actor.position,
       focal_point=(0, 0, 0),
       light_type='scenelight',
-      intensity=1,
+      intensity=1.5,
     )
 
     plotter.add_light(self.sun_light)
@@ -389,4 +389,4 @@ def output(message, replace_line=False):
   if replace_line:
     print(f'\r{message}\033[K', end="", flush=True)
   else:
-    print(message)  
+    print(message, flush=True)  

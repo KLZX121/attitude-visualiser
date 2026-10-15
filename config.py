@@ -74,6 +74,9 @@ class OPT:
 
   show_body_mesh: bool = True
   show_normals: bool = False
+  show_edges: bool = False
+  transparent: bool = False
+
   show_aero_f: bool = False
   show_srp_f: bool = True
 
