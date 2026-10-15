@@ -179,6 +179,9 @@ class Body:
     self.srp_f_actors = []
 
   def setup(self, plotter, add_force_actors):
+    if add_force_actors:
+      force_mesh = pv.Arrow(start=(-1, 0, 0), direction=(1, 0, 0), tip_resolution=10, shaft_resolution=10)
+
     for surface_obj in self.geometry.surfaces:
       # convert vertex data to PolyData
       vertices = pv.PolyData(surface_obj.vertices)
@@ -213,13 +216,11 @@ class Body:
 
       # surface force actors
       if add_force_actors:
-        arrow_mesh = pv.Arrow(start=(-1, 0, 0), direction=(1, 0, 0), tip_resolution=10, shaft_resolution=10)
-
-        aero_f_actor = plotter.add_mesh(arrow_mesh, color='dodger_blue', lighting=False)
+        aero_f_actor = plotter.add_mesh(force_mesh, color='dodger_blue', lighting=False)
         aero_f_actor.scale = 0
         self.aero_f_actors.append(aero_f_actor)
 
-        srp_f_actor = plotter.add_mesh(arrow_mesh, color='gold', lighting=False)
+        srp_f_actor = plotter.add_mesh(force_mesh, color='gold', lighting=False)
         srp_f_actor.scale = 0
         self.srp_f_actors.append(srp_f_actor)
 
@@ -244,23 +245,26 @@ class Body:
       else:
         actor.visibility = show_srp_f
 
-  def rotate_mesh(self, dcm):
-    for actor in self.surf_actors + self.norm_actors + self.aero_f_actors + self.srp_f_actors:
+  def rotate_mesh(self, dcm, show_norms):
+    actors = self.surf_actors
+    if show_norms:
+      actors += self.norm_actors
+
+    for actor in actors:
       actor.rotation_from(dcm.T)
 
-  def update_forces(self, surface_forces, dcm, aero_scale_factor, srp_scale_factor, min_actor_scale):    
-    forces = surface_forces.a.f + surface_forces.s.f
-    summed_forces = [np.linalg.norm(f) for f in forces]
+  def update_forces(self, forces, dcm, f_actors, scale_factor, min_actor_scale):    
+    normed_forces = [np.linalg.norm(f) for f in forces]
 
-    for i, force_actor in enumerate(self.aero_f_actors + self.srp_f_actors):
-      f = summed_forces[i]
+    for i, force_actor in enumerate(f_actors):
+      f = normed_forces[i]
 
       actor_scale = 0
       if f > 1e-16:
-        actor_scale = f * (aero_scale_factor if i < (len(forces)/2) else srp_scale_factor) + min_actor_scale
+        actor_scale = f * scale_factor + min_actor_scale
 
       force_actor.scale = actor_scale
-      force_actor.position = self.surf_actors[i % int(len(forces) / 2)].center
+      force_actor.position = self.surf_actors[i].center
 
       # rotate in direction of uf
       uf = [0, 0, 0]

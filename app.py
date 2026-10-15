@@ -193,6 +193,7 @@ class MainWindow(QMainWindow):
     self.hud_label = QLabel('', plotter_widget)
     self.hud_label.setStyleSheet('color: white;')
     self.hud_label.move(20, 20)
+    self.hud_label.setMinimumWidth(200)
 
     self.plotter.add_axes()
     self.change_bg(OPT.background)
@@ -630,7 +631,6 @@ class MainWindow(QMainWindow):
 
     t = (frame-1)*OPT.simulation_timestep
     self.hud_label.setText(f'Frame: {frame} | t = {format_time(t, OPT.time_format)}')
-    self.hud_label.adjustSize()
 
     dcm = self.dcm_list[frame-1]
 
@@ -640,11 +640,15 @@ class MainWindow(QMainWindow):
 
     # update satellite body orientation
     if OPT.GEOMETRY_AVAILABLE and OPT.show_body_mesh:
-      self.body_mesh.rotate_mesh(dcm)
+      self.body_mesh.rotate_mesh(dcm, OPT.show_normals)
 
       # update surface forces
-      if OPT.FORCES_AVAILABLE and (OPT.show_aero_f or OPT.show_srp_f):
-        self.body_mesh.update_forces(self.surface_forces[frame-1], dcm, OPT.AERO_FORCE_SCALE, OPT.SRP_FORCE_SCALE, OPT.FORCE_SCALE_MIN)
+      if OPT.FORCES_AVAILABLE:
+        if OPT.show_aero_f:
+          self.body_mesh.update_forces(self.surface_forces[frame-1].a.f, dcm, self.body_mesh.aero_f_actors, OPT.AERO_FORCE_SCALE, OPT.FORCE_SCALE_MIN)
+        if OPT.show_srp_f:
+          self.body_mesh.update_forces(self.surface_forces[frame-1].s.f, dcm, self.body_mesh.srp_f_actors, OPT.SRP_FORCE_SCALE, OPT.FORCE_SCALE_MIN)
+
 
     if OPT.SUN_AVAILABLE and OPT.show_sun:
       r_s = self.r_sun_list[frame-1]
@@ -658,17 +662,17 @@ class MainWindow(QMainWindow):
         dcm_lvlh = get_lvlh(r, v)
         self.lvlh_axes.rotate_mesh(dcm_lvlh, OPT.show_axes_labels)
 
-      u_r = r / np.linalg.norm(r)
-      u_v = v / np.linalg.norm(v)
-
       # update earth position
       if OPT.show_earth:
         self.earth.update_position(r, OPT.EARTH_DISTANCE)
 
     # use camera tracking
-    if OPT.EARTH_AVAILABLE and not OPT.tracking_camera == 'Free':
+    if OPT.EARTH_AVAILABLE and OPT.tracking_camera != 'Free':
       cam = self.plotter.camera
       cam.focal_point = (0, 0, 0)
+
+      u_r = r / np.linalg.norm(r)
+      u_v = v / np.linalg.norm(v)
 
       if OPT.tracking_camera == 'Down':
         # motion towards top of screen
