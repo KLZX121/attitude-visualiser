@@ -3,13 +3,16 @@ import time
 import pyvista as pv
 import numpy as np
 from pathlib import Path
+
 from helpers import *
 from config import OPT
+from render_settings import RenderSettingsDialog
 
 from pyvistaqt import QtInteractor
 from qtpy.QtCore import Qt, QTimer, QSettings
 from PyQt6.QtGui import QDoubleValidator
 from qtpy.QtWidgets import *
+
 
 class MainWindow(QMainWindow):
   user_interacting = False
@@ -20,9 +23,11 @@ class MainWindow(QMainWindow):
     self.setWindowTitle('Attitude Visualiser v1')
     self.resize(OPT.WINDOW_SIZE[0], OPT.WINDOW_SIZE[1])
 
-    self.setup_window()
+    self.setup_window(read_data=True)
 
-  def setup_window(self):
+  def setup_window(self, read_data=True):
+    output('Setting up window')
+
     settings = QSettings('AttitudeVisualiser', 'AttitudeVisualiser')
     # load persistent settings
     PERSISTENT_SETTINGS = [
@@ -52,66 +57,51 @@ class MainWindow(QMainWindow):
 
 
     # read data
-    def message_box(msg_type, input=None):
-      if msg_type == 0:
-        QMessageBox.information(
-          self,
-          'File Not Found',
-          f'The file/s: \'{input}\' could not be found. Make they are named and placed correctly.'
-        )
-      elif msg_type == 1:
-        QMessageBox.information(
-          self,
-          'Data Not Found',
-          'Orbital position and velocity data could not be found.'
-        )
+    if read_data:
+      output('Reading data')
 
-    lost_files = []
+      self.dcm_list, self.r_list, self.v_list = read_state_data(OPT.filepath / OPT.FILENAME_STATE, OPT.I_Q, OPT.I_R, OPT.I_V)
 
-    self.dcm_list, self.r_list, self.v_list = read_state_data(OPT.filepath / OPT.FILENAME_STATE, OPT.I_Q, OPT.I_R, OPT.I_V)
+      if self.dcm_list:
+        self.N_FRAMES = len(self.dcm_list)
+        OPT.FILE_AVAILABLE = True
+      else:
+        self.N_FRAMES = 1
+        OPT.FILE_AVAILABLE = False
+        output(f'The file: \'{OPT.filepath / OPT.FILENAME_STATE}\' could not be found. Make it is named and placed correctly.')
 
-    if self.dcm_list:
-      self.N_FRAMES = len(self.dcm_list)
-      OPT.FILE_AVAILABLE = True
-    else:
-      self.N_FRAMES = 1
-      OPT.FILE_AVAILABLE = False
-      lost_files.append(OPT.FILENAME_STATE)
+      if self.r_list and self.v_list:
+        OPT.EARTH_AVAILABLE = True
+      elif self.dcm_list:
+        OPT.EARTH_AVAILABLE = False
+        output('Orbital position and velocity data could not be found.')
 
-    if self.r_list and self.v_list:
-      OPT.EARTH_AVAILABLE = True
-    elif self.dcm_list:
-      OPT.EARTH_AVAILABLE = False
-      message_box(1)
+      self.surface_forces, aero_f_max, srp_f_max = read_surface_data(OPT.filepath / OPT.FILENAME_SURFACE_FORCES)
+      if self.surface_forces:
+        OPT.FORCES_AVAILABLE = True
 
-    self.surface_forces, aero_f_max, srp_f_max = read_surface_data(OPT.filepath / OPT.FILENAME_SURFACE_FORCES)
-    if self.surface_forces:
-      OPT.FORCES_AVAILABLE = True
+        OPT.AERO_FORCE_SCALE = (OPT.FORCE_SCALE_MAX - OPT.FORCE_SCALE_MIN)/aero_f_max
+        OPT.SRP_FORCE_SCALE = (OPT.FORCE_SCALE_MAX - OPT.FORCE_SCALE_MIN)/srp_f_max
+      else:
+        OPT.FORCES_AVAILABLE = False
+        output(f'The file: \'{OPT.filepath / OPT.FILENAME_SURFACE_FORCES}\' could not be found. Make it is named and placed correctly.')
 
-      OPT.AERO_FORCE_SCALE = (OPT.FORCE_SCALE_MAX - OPT.FORCE_SCALE_MIN)/aero_f_max
-      OPT.SRP_FORCE_SCALE = (OPT.FORCE_SCALE_MAX - OPT.FORCE_SCALE_MIN)/srp_f_max
-    else:
-      OPT.FORCES_AVAILABLE = False
-      lost_files.append(OPT.FILENAME_SURFACE_FORCES)
+      self.geometry_data, OPT.GEOMETRY_SCALE = read_geometry_data(OPT.filepath / OPT.FILENAME_GEOMETRY)
+      if self.geometry_data:
+        OPT.GEOMETRY_AVAILABLE = True
+      else:
+        OPT.GEOMETRY_AVAILABLE = False
+        output(f'The file: \'{OPT.filepath / OPT.FILENAME_GEOMETRY}\' could not be found. Make it is named and placed correctly.')
 
-    self.geometry_data, OPT.GEOMETRY_SCALE = read_geometry_data(OPT.filepath / OPT.FILENAME_GEOMETRY)
-    if self.geometry_data:
-      OPT.GEOMETRY_AVAILABLE = True
-    else:
-      OPT.GEOMETRY_AVAILABLE = False
-      lost_files.append(OPT.FILENAME_GEOMETRY)
-
-    self.r_sun_list = read_r_sun_data(OPT.filepath / OPT.FILENAME_SUN_POS)
-    if self.r_sun_list:
-      OPT.SUN_AVAILABLE = True
-    else:
-      OPT.SUN_AVAILABLE = False
-      lost_files.append(OPT.FILENAME_SUN_POS)
-
-    if lost_files:
-      message_box(0, lost_files)
+      self.r_sun_list = read_r_sun_data(OPT.filepath / OPT.FILENAME_SUN_POS)
+      if self.r_sun_list:
+        OPT.SUN_AVAILABLE = True
+      else:
+        OPT.SUN_AVAILABLE = False
+        output(f'The file: \'{OPT.filepath / OPT.FILENAME_SUN_POS}\' could not be found. Make it is named and placed correctly.')
 
 
+    output('Setting up GUI')
     # create central widget and layout
     central_widget = QWidget()
     central_layout = QVBoxLayout(central_widget)
@@ -129,6 +119,8 @@ class MainWindow(QMainWindow):
     # reset camera
     self.plotter.reset_camera(bounds=(-OPT.GEOMETRY_SCALE, OPT.GEOMETRY_SCALE)*3)
     self.end_interaction_cb()
+
+    output('Finished setup')
 
 
   def setup_plotter(self, central_widget) -> QWidget:
@@ -206,6 +198,7 @@ class MainWindow(QMainWindow):
     self.change_bg(OPT.background)
 
     return plotter_widget
+
 
   def setup_controls(self, central_layout, plotter_widget, settings):
     def save_persistent_setting(name):
@@ -355,7 +348,7 @@ class MainWindow(QMainWindow):
         self.plotter.close()
         QApplication.processEvents()
 
-        self.setup_window()
+        self.setup_window(read_data=True)
     self.read_btn = QPushButton('Read Data')
     self.read_btn.clicked.connect(reread_dir)
 
@@ -506,6 +499,24 @@ class MainWindow(QMainWindow):
         self.forces_combo.setCurrentText(current_force)
 
 
+    # render button
+    def open_render_dialog():
+      dialog = RenderSettingsDialog(
+        start_frame=1,
+        end_frame=self.N_FRAMES,
+        output_type="MP4",
+        output_dir=str(Path.home() / "Downloads"),
+        parent=self,
+        speed=OPT.playback_speed
+      )
+
+      if dialog.exec():
+        settings = dialog.get_settings()
+        self.render_animation(settings)
+
+    self.render_btn = QPushButton('Render')
+    self.render_btn.clicked.connect(open_render_dialog)
+
     top_layout = QHBoxLayout()
     top_layout.addWidget(QLabel('Camera:'), 1)
     top_layout.addWidget(self.cam_combo, 2)
@@ -554,6 +565,7 @@ class MainWindow(QMainWindow):
     bot_bot.addWidget(self.speed_combo)
     bot_bot.addWidget(QLabel('Simulation Timestep (s):'))
     bot_bot.addWidget(self.dt_input)
+    bot_bot.addWidget(self.render_btn)
     bot_bot.addStretch()
 
     bottom_layout = QVBoxLayout()
@@ -674,8 +686,10 @@ class MainWindow(QMainWindow):
       elif OPT.tracking_camera == 'Inertial':
         # arbitrary angle, inertially fixed
         None
-    
+
     self.plotter.render()
+
+
 
   def change_bg(self, bg):
     if bg == 'Black':
@@ -711,6 +725,43 @@ class MainWindow(QMainWindow):
         if hasattr(axes, 'label_actor'):
           text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
           text_property.SetColor(1, 1, 1)
+
+  def render_animation(self, settings):
+    start = settings["start_frame"]
+    end = settings["end_frame"]
+    output_type = settings["output_type"]
+    output_dir = Path(settings["output_dir"])
+    quality = settings["quality"]
+    speed = settings["speed"]
+    fps = settings["fps"]
+
+    output_path = output_dir / f"render.{output_type}"
+
+    if output_type == "mp4":
+      self.plotter.open_movie(str(output_path), framerate=fps, quality=quality)
+    else:
+      self.plotter.open_gif(str(output_path), fps=fps)
+
+    for frame in range(start, end+1, speed):
+      output(f'Rendering: {frame}/{end}', replace_line=True)
+      self.update_frame(frame)
+      self.plotter.write_frame()
+
+      # clear console (and any imageio warnings)
+      if frame == start:
+        print("\033[2J\033[H", end="", flush=True)
+
+    if ((end+1) % speed):
+      output(f'Rendering: {end}/{end}', replace_line=True)
+      self.update_frame(end)
+      self.plotter.write_frame()
+
+    self.plotter.close()
+    QApplication.processEvents()
+
+    output(f'\nRender output at: {output_path}')
+
+    self.setup_window(read_data=False)
 
   def start_interaction_cb(self, *_):
     self.user_interacting = True

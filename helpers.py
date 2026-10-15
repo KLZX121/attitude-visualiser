@@ -384,3 +384,9 @@ def format_time(t, format):
     time_str = str(f'{((t // 3600) % 60):.0f} h {((t // 60) % 60):.0f} m {(t % 60):.2f} s')
 
   return time_str
+
+def output(message, replace_line=False):
+  if replace_line:
+    print(f'\r{message}\033[K', end="", flush=True)
+  else:
+    print(message)  

@@ -51,6 +51,9 @@ class OPT:
   # how often (ms) that a playback step occurs (17ms = 1/(60fps))
   TIMER_INT: int = 17
 
+  is_recording: bool = False
+  RECORDING_END_FRAME: int = 0
+
   # time hud format
   TIME_FORMATS = ['hr:min:sec', 'min', 'sec']
   time_format = 'hr:min:sec'
