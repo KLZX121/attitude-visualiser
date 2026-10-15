@@ -24,12 +24,16 @@ Attitude and other relevant data is read from user given JSON files. See [Steps]
 * View satellite attitude relative to the Sun
 * Includes Sun object and lighting effects
 
+**Rendering**
+* Ability to render an MP4 or GIF file using the visualiser
+
 ### Steps to Use
 1. Setup input JSON files in a directory of your choice - see [below](#input-json-files) for more information
 2. In the app, choose the `Directory` using the button in the top bar and press `Read Data`
 3. Set the appropriate `Simulation Timestep` for your data
 4. Show/hide visualiser features to fit your analysis
 5. Press `Play`, use the playback slider, or press the `<`/`>` buttons to view each timestep
+6. Press `Render` and adjust the settings to produce a video file
 
 ---
 
