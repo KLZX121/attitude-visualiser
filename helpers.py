@@ -183,17 +183,15 @@ class Body:
       force_mesh = pv.Arrow(start=(-1, 0, 0), direction=(1, 0, 0), tip_resolution=10, shaft_resolution=10)
 
     for surface_obj in self.geometry.surfaces:
-      # convert vertex data to PolyData
-      vertices = pv.PolyData(surface_obj.vertices)
-      # use delaunay triangulation to create surface mesh from vertices
-      surface_mesh = vertices.delaunay_2d()
+      # convert vertex data to PolyData with faces
+      vertices = pv.PolyData(surface_obj.vertices, np.array([4, 0, 1, 2, 3]))
 
       mesh_col = None
       """ if 'x_pos' in surface_obj.name:
         mesh_col = 'yellow' """
       
       surf_actor = plotter.add_mesh(
-        surface_mesh,
+        vertices,
         color=mesh_col,
         ambient=0.15,
         diffuse=0.8,
