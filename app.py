@@ -47,6 +47,7 @@ class MainWindow(QMainWindow):
       'show_normals',
       'show_edges',
       'transparent',
+      'lighting',
       'show_aero_f',
       'show_srp_f',
       'show_earth',
@@ -70,7 +71,7 @@ class MainWindow(QMainWindow):
       else:
         self.N_FRAMES = 1
         OPT.FILE_AVAILABLE = False
-        output(f'The file: \'{OPT.filepath / OPT.FILENAME_STATE}\' could not be found. Make it is named and placed correctly.')
+        output(f'The file: \'{OPT.filepath / OPT.FILENAME_STATE}\' could not be found.')
 
       if self.r_list and self.v_list:
         OPT.EARTH_AVAILABLE = True
@@ -82,25 +83,27 @@ class MainWindow(QMainWindow):
       if self.surface_forces:
         OPT.FORCES_AVAILABLE = True
 
-        OPT.AERO_FORCE_SCALE = (OPT.FORCE_SCALE_MAX - OPT.FORCE_SCALE_MIN)/aero_f_max
-        OPT.SRP_FORCE_SCALE = (OPT.FORCE_SCALE_MAX - OPT.FORCE_SCALE_MIN)/srp_f_max
+        OPT.AERO_F_MAX = aero_f_max
+        OPT.SRP_F_MAX = srp_f_max
+        OPT.AERO_FORCE_SCALE = (OPT.FORCE_SCALE_MAX - OPT.FORCE_SCALE_MIN)/OPT.AERO_F_MAX
+        OPT.SRP_FORCE_SCALE = (OPT.FORCE_SCALE_MAX - OPT.FORCE_SCALE_MIN)/OPT.SRP_F_MAX
       else:
         OPT.FORCES_AVAILABLE = False
-        output(f'The file: \'{OPT.filepath / OPT.FILENAME_SURFACE_FORCES}\' could not be found. Make it is named and placed correctly.')
+        output(f'The file: \'{OPT.filepath / OPT.FILENAME_SURFACE_FORCES}\' could not be found.')
 
       self.geometry_data, OPT.GEOMETRY_SCALE = read_geometry_data(OPT.filepath / OPT.FILENAME_GEOMETRY)
       if self.geometry_data:
         OPT.GEOMETRY_AVAILABLE = True
       else:
         OPT.GEOMETRY_AVAILABLE = False
-        output(f'The file: \'{OPT.filepath / OPT.FILENAME_GEOMETRY}\' could not be found. Make it is named and placed correctly.')
+        output(f'The file: \'{OPT.filepath / OPT.FILENAME_GEOMETRY}\' could not be found.')
 
       self.r_sun_list = read_r_sun_data(OPT.filepath / OPT.FILENAME_SUN_POS)
       if self.r_sun_list:
         OPT.SUN_AVAILABLE = True
       else:
         OPT.SUN_AVAILABLE = False
-        output(f'The file: \'{OPT.filepath / OPT.FILENAME_SUN_POS}\' could not be found. Make it is named and placed correctly.')
+        output(f'The file: \'{OPT.filepath / OPT.FILENAME_SUN_POS}\' could not be found.')
 
 
     output('Setting up GUI')
@@ -153,7 +156,7 @@ class MainWindow(QMainWindow):
     if OPT.GEOMETRY_AVAILABLE:              
       self.body_mesh = Body(self.geometry_data)
       self.body_mesh.setup(self.plotter, OPT.FORCES_AVAILABLE)
-      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
+      self.body_mesh.toggle_visibility(OPT)
 
     # plot earth
     if OPT.EARTH_AVAILABLE:
@@ -433,11 +436,12 @@ class MainWindow(QMainWindow):
     # satellite body toggle
     def toggle_body_mesh(is_checked):
       OPT.show_body_mesh = is_checked
-      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
+      self.body_mesh.toggle_visibility(OPT)
 
       self.norm_btn.setEnabled(OPT.show_body_mesh)
       self.edge_btn.setEnabled(OPT.show_body_mesh)
       self.transparency_btn.setEnabled(OPT.show_body_mesh)
+      self.lighting_btn.setEnabled(OPT.show_body_mesh)
       self.forces_combo.setEnabled(OPT.show_body_mesh)
 
       self.update_frame()
@@ -454,7 +458,7 @@ class MainWindow(QMainWindow):
       OPT.show_normals = is_checked
 
       if hasattr(self, 'body_mesh'):
-        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
+        self.body_mesh.toggle_visibility(OPT)
 
       self.update_frame()
       save_persistent_setting('show_normals')
@@ -471,7 +475,7 @@ class MainWindow(QMainWindow):
       OPT.show_edges = is_checked
 
       if hasattr(self, 'body_mesh'):
-        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
+        self.body_mesh.toggle_visibility(OPT)
 
       self.update_frame()
       save_persistent_setting('show_edges')
@@ -487,7 +491,7 @@ class MainWindow(QMainWindow):
       OPT.transparent = is_checked
 
       if hasattr(self, 'body_mesh'):
-        self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
+        self.body_mesh.toggle_visibility(OPT)
 
       self.update_frame()
       save_persistent_setting('transparent')
@@ -498,13 +502,28 @@ class MainWindow(QMainWindow):
     )
     self.transparency_btn.toggled.connect(toggle_transparency)
 
+    # lighting
+    def toggle_lighting(is_checked):
+      OPT.lighting = is_checked
+
+      if hasattr(self, 'body_mesh'):
+        self.body_mesh.toggle_visibility(OPT)
+
+      self.update_frame()
+      save_persistent_setting('lighting')
+    self.lighting_btn = QPushButton(
+      'Lighting',
+      checkable=True,
+      enabled=OPT.show_body_mesh
+    )
+    self.lighting_btn.toggled.connect(toggle_lighting)
 
     # satellite forces combo box
     def change_forces(option):
       OPT.show_aero_f = any(sub in option for sub in ['Aero', 'All'])
       OPT.show_srp_f = any(sub in option for sub in ['SRP', 'All'])
 
-      self.body_mesh.toggle_visibility(OPT.show_body_mesh, OPT.show_normals, OPT.show_aero_f, OPT.show_srp_f, OPT.show_edges, OPT.transparent)
+      self.body_mesh.toggle_visibility(OPT)
 
       self.update_frame()
       save_persistent_setting('show_aero_f')
@@ -531,6 +550,8 @@ class MainWindow(QMainWindow):
         else:
           current_force = 'None'
         self.forces_combo.setCurrentText(current_force)
+
+        self.lighting_btn.setChecked(OPT.lighting)
 
 
     # render button
@@ -565,14 +586,14 @@ class MainWindow(QMainWindow):
 
 
     left_layout = QVBoxLayout()
-    left_layout.addSpacing(10)
+    left_layout.addSpacing(5)
     add_divider(left_layout, spacing_before=0)
+    left_layout.addWidget(self.labels_btn)
+    left_layout.addSpacing(5)
     left_layout.addWidget(self.raxes_btn)
     if OPT.EARTH_AVAILABLE:
       left_layout.addWidget(self.laxes_btn)
     left_layout.addWidget(self.baxes_btn)
-    left_layout.addSpacing(10)
-    left_layout.addWidget(self.labels_btn)
     add_divider(left_layout)
     if OPT.EARTH_AVAILABLE:
       left_layout.addWidget(self.earth_btn)
@@ -585,6 +606,7 @@ class MainWindow(QMainWindow):
       left_layout.addWidget(self.edge_btn)
       left_layout.addWidget(self.transparency_btn)
       if OPT.FORCES_AVAILABLE:
+        left_layout.addWidget(self.lighting_btn)
         left_layout.addWidget(self.forces_combo)
     left_layout.addStretch()
 
@@ -648,6 +670,11 @@ class MainWindow(QMainWindow):
           self.body_mesh.update_forces(self.surface_forces[frame-1].a.f, dcm, self.body_mesh.aero_f_actors, OPT.AERO_FORCE_SCALE, OPT.FORCE_SCALE_MIN)
         if OPT.show_srp_f:
           self.body_mesh.update_forces(self.surface_forces[frame-1].s.f, dcm, self.body_mesh.srp_f_actors, OPT.SRP_FORCE_SCALE, OPT.FORCE_SCALE_MIN)
+
+      # update SRP panel based lighting
+      if OPT.FORCES_AVAILABLE and OPT.lighting:
+        normed_srp = np.linalg.norm(self.surface_forces[frame-1].s.f, axis=1) / OPT.SRP_F_MAX
+        self.body_mesh.update_lighting(normed_srp, OPT.SAT_AMBIENT_LIGHT)
 
 
     if OPT.SUN_AVAILABLE and OPT.show_sun:
@@ -784,7 +811,7 @@ class MainWindow(QMainWindow):
     start_time = time.perf_counter()
 
     for frame in range(start, end+1, speed):
-      output(f'Rendering: {frame}/{end}', replace_line=True)
+      output(f'Rendering: {frame-start}/{end-start}', replace_line=True)
       self.update_frame(frame)
       self.plotter.write_frame()
 
@@ -793,7 +820,7 @@ class MainWindow(QMainWindow):
         print("\033[2J\033[H", end="", flush=True)
 
     if ((end+1) % speed):
-      output(f'Rendering: {end}/{end}', replace_line=True)
+      output(f'Rendering: {end-start}/{end-start}', replace_line=True)
       self.update_frame(end)
       self.plotter.write_frame()
 

@@ -186,17 +186,18 @@ class Body:
       # convert vertex data to PolyData with faces
       vertices = pv.PolyData(surface_obj.vertices, np.array([4, 0, 1, 2, 3]))
 
-      mesh_col = None
+      mesh_col = None #(0.60, 0.68, 0.80)
       """ if 'x_pos' in surface_obj.name:
         mesh_col = 'yellow' """
       
       surf_actor = plotter.add_mesh(
         vertices,
         color=mesh_col,
-        ambient=0.15,
-        diffuse=0.8,
-        specular=0.5,
-        show_edges=True
+        ambient=0,
+        diffuse=0,
+        specular=0,
+        show_edges=True,
+        culling="back"
       )
       self.surf_actors.append(surf_actor)
 
@@ -222,31 +223,28 @@ class Body:
         srp_f_actor.scale = 0
         self.srp_f_actors.append(srp_f_actor)
 
-  def toggle_visibility(self, show_surf, show_norms, show_aero_f, show_srp_f, show_edges, transparent):
+  def toggle_visibility(self, OPT):
     for actor in self.surf_actors:
-      actor.visibility = show_surf
-      actor.GetProperty().SetEdgeVisibility(show_edges)
-      actor.GetProperty().SetOpacity(0.5 if transparent else 1)
-    for actor in self.norm_actors:
-      if not show_surf:
-        actor.visibility = False
-      else:
-        actor.visibility = show_norms
-    for actor in self.aero_f_actors:
-      if not show_surf:
-        actor.visibility = False
-      else:
-        actor.visibility = show_aero_f
-    for actor in self.srp_f_actors:
-      if not show_surf:
-        actor.visibility = False
-      else:
-        actor.visibility = show_srp_f
+      actor.visibility = OPT.show_body_mesh
+      actor.GetProperty().SetEdgeVisibility(OPT.show_edges)
+      actor.GetProperty().SetOpacity(0.5 if OPT.transparent else 1)
+      
+      # toggle lighting
+      actor.prop.ambient = 0 if OPT.lighting else 0.4
+      actor.prop.diffuse = 0 if OPT.lighting else 0.8
+      actor.prop.specular = 0 if OPT.lighting else 0.5
 
-  def rotate_mesh(self, dcm, show_norms):
-    actors = self.surf_actors
-    if show_norms:
-      actors += self.norm_actors
+    for actor in self.norm_actors:
+      actor.visibility = OPT.show_normals if OPT.show_body_mesh else False
+
+    for actor in self.aero_f_actors:
+      actor.visibility = OPT.show_aero_f if OPT.show_body_mesh else False
+
+    for actor in self.srp_f_actors:
+      actor.visibility = OPT.show_srp_f if OPT.show_body_mesh else False
+
+  def rotate_mesh(self, dcm, show_normals):
+    actors = self.surf_actors + (self.norm_actors if show_normals else [])
 
     for actor in actors:
       actor.rotation_from(dcm.T)
@@ -270,6 +268,16 @@ class Body:
       if any(uf):
         rot = pv.Transform().rotate_vector(np.cross([1, 0, 0], uf), np.degrees(np.arccos(np.dot([1, 0, 0], uf))))
         force_actor.rotation_from(dcm.T @ rot.rotation_matrix)
+
+  def update_lighting(self, normed_srp_forces, ambient_lighting):
+    for i, f in enumerate(normed_srp_forces):
+      prop = self.surf_actors[i].prop
+      
+      if f > 1e-16:
+        prop.ambient = np.clip(f*(ambient_lighting[1]-ambient_lighting[0]) + ambient_lighting[0], 0, 1)
+      else:
+        prop.ambient = ambient_lighting[0]
+        
 
 
 class Earth:
@@ -308,7 +316,7 @@ class Sun:
   def setup(self, r, dist, radius, plotter):
     self.radius = radius
     sun_mesh = pv.examples.planets.load_planet(radius=self.radius)
-    self.actor = plotter.add_mesh(sun_mesh, color='yellow', lighting=False)
+    self.actor = plotter.add_mesh(sun_mesh, color=(1.0, 0.96, 0.85), lighting=False)
 
     # add lighting
     self.sun_light = pv.Light(

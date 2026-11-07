@@ -28,16 +28,21 @@ class OPT:
   # roughly longest length of satellite, used to resize axes and earth
   GEOMETRY_SCALE: float = 0.3
   # how much bigger the earth/sun is compared to the satellite
-  EARTH_SIZE: float = 10
+  EARTH_SIZE: float = 100
   EARTH_DISTANCE: float = 1.2
-  SUN_SIZE: float = 1
+  SUN_SIZE: float = 2
   SUN_DISTANCE: float = 100
   # force actor sizes
   FORCE_SCALE_MIN: float = GEOMETRY_SCALE*0.05
   FORCE_SCALE_MAX: float = GEOMETRY_SCALE*0.3
   AERO_FORCE_SCALE: float = 0
   SRP_FORCE_SCALE: float = 0
-  
+  AERO_F_MAX: float = 0
+  SRP_F_MAX: float = 0
+
+  # satellite ambient lighting range
+  lighting: bool = True
+  SAT_AMBIENT_LIGHT: tuple[float, float] = (0.15, 1)
 
   autoplay: bool = False
   loop_playback: bool = True
@@ -69,7 +74,7 @@ class OPT:
 
   show_eci_axes: bool = False
   show_body_axes: bool = False
-  show_lvlh_axes: bool = True
+  show_lvlh_axes: bool = False
   show_axes_labels: bool = True
 
   show_body_mesh: bool = True
@@ -78,7 +83,7 @@ class OPT:
   transparent: bool = False
 
   show_aero_f: bool = False
-  show_srp_f: bool = True
+  show_srp_f: bool = False
 
   show_earth: bool = True
   show_sun: bool = True
