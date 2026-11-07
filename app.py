@@ -201,6 +201,7 @@ class MainWindow(QMainWindow):
       OPT.autoplay = is_checked
 
       if is_checked:
+        OPT.real_time_last_update = time.perf_counter()
         self.play_button.setText('Pause')
       else:
         self.play_button.setText('Play')
@@ -273,7 +274,26 @@ class MainWindow(QMainWindow):
 
     # autoplay functionality
     self.timer = QTimer(self)
-    self.timer.timeout.connect(lambda: step_frame(True, OPT.playback_speed))
+    self.timer.setSingleShot(True)
+    self.timer.setTimerType(Qt.TimerType.PreciseTimer)
+
+    def tick():
+      t0 = time.perf_counter()
+
+      if OPT.autoplay:
+        if OPT.real_time:
+          # jump ahead by however many sim steps of wall time have passed
+          n = int((t0 - OPT.real_time_last_update) / OPT.simulation_timestep)
+          if n >= 1:
+            OPT.real_time_last_update += n * OPT.simulation_timestep
+            step_frame(False, min(n, 1000))
+        else:
+          step_frame(True, OPT.playback_speed)
+
+      spent_ms = (time.perf_counter() - t0) * 1000
+      self.timer.start(max(1, int(OPT.TIMER_INT - spent_ms))) # always yield to the event loop
+
+    self.timer.timeout.connect(tick)
     self.timer.start(OPT.TIMER_INT)
 
     # change simulation timestep
