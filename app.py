@@ -23,9 +23,9 @@ class MainWindow(QMainWindow):
     self.setWindowTitle('Attitude Visualiser v1.1')
     self.resize(OPT.WINDOW_SIZE[0], OPT.WINDOW_SIZE[1])
 
-    self.setup_window(read_data=True)
+    self.setup_window(read_data=False)
 
-  def setup_window(self, read_data=True):
+  def setup_window(self, read_data):
     output('Setting up window')
 
     settings = QSettings('AttitudeVisualiser', 'AttitudeVisualiser')
@@ -36,6 +36,8 @@ class MainWindow(QMainWindow):
         setattr(OPT, name, settings.value(name, default, type=type(default)))
 
 
+    self.N_FRAMES = 1
+    
     # read data
     if read_data:
       output('Reading data')
@@ -46,7 +48,6 @@ class MainWindow(QMainWindow):
         self.N_FRAMES = len(self.dcm_list)
         OPT.FILE_AVAILABLE = True
       else:
-        self.N_FRAMES = 1
         OPT.FILE_AVAILABLE = False
         output(f'The file: \'{OPT.filepath / OPT.FILENAME_STATE}\' could not be found.')
 
@@ -153,6 +154,7 @@ class MainWindow(QMainWindow):
       )
 
     # plot sun
+    self.sun_vector = None
     if OPT.SUN_AVAILABLE:
       self.sun = Sun()
       self.sun.setup(self.r_sun_list[0], OPT.SUN_DISTANCE, OPT.GEOMETRY_SCALE*OPT.SUN_SIZE, self.plotter)
