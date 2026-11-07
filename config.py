@@ -4,6 +4,31 @@ import sys
 
 @dataclass
 class OPT:
+  PERSISTENT_SETTINGS = [
+    'filepath',
+    'simulation_timestep',
+    'loop_playback',
+    'playback_speed',
+    'real_time',
+    'time_format',
+    'tracking_camera',
+    'background',
+    'show_eci_axes',
+    'show_body_axes',
+    'show_lvlh_axes',
+    'show_axes_labels',
+    'show_body_mesh',
+    'show_normals',
+    'show_edges',
+    'transparent',
+    'lighting',
+    'show_aero_f',
+    'show_srp_f',
+    'show_earth',
+    'show_sun',
+    'show_sun_vector'
+  ]
+  
   WINDOW_SIZE: tuple[int, int] = (800, 600)
 
   filepath: Path = Path(sys.executable).resolve().parent
@@ -87,3 +112,5 @@ class OPT:
 
   show_earth: bool = True
   show_sun: bool = True
+
+  show_sun_vector: bool = True

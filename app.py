@@ -30,30 +30,7 @@ class MainWindow(QMainWindow):
 
     settings = QSettings('AttitudeVisualiser', 'AttitudeVisualiser')
     # load persistent settings
-    PERSISTENT_SETTINGS = [
-      'filepath',
-      'simulation_timestep',
-      'loop_playback',
-      'playback_speed',
-      'real_time',
-      'time_format',
-      'tracking_camera',
-      'background',
-      'show_eci_axes',
-      'show_body_axes',
-      'show_lvlh_axes',
-      'show_axes_labels',
-      'show_body_mesh',
-      'show_normals',
-      'show_edges',
-      'transparent',
-      'lighting',
-      'show_aero_f',
-      'show_srp_f',
-      'show_earth',
-      'show_sun'
-    ]
-    for name in PERSISTENT_SETTINGS:
+    for name in OPT.PERSISTENT_SETTINGS:
       default = getattr(OPT, name)
       if settings.contains(name):
         setattr(OPT, name, settings.value(name, default, type=type(default)))
@@ -182,6 +159,13 @@ class MainWindow(QMainWindow):
 
       if not OPT.show_sun:
         self.sun.toggle_visibility(self.plotter, OPT.show_sun)
+
+      # sun vector
+      self.sun_vector = Vector('sun', 'yellow')
+      self.sun_vector.setup(OPT.GEOMETRY_SCALE*1.1, self.plotter)
+
+      if not OPT.show_sun_vector:
+        self.sun_vector.toggle_visibility(OPT.show_sun_vector, OPT.show_axes_labels)
 
     # 16k starry skybox (Stars)
     skybox_texture = pv.examples.download_cubemap_space_16k().to_skybox()
@@ -419,6 +403,20 @@ class MainWindow(QMainWindow):
     )
     self.laxes_btn.toggled.connect(toggle_lvlh)
 
+    # sun vector toggle
+    def toggle_sun_vector(is_checked):
+      OPT.show_sun_vector = is_checked
+      self.sun_vector.toggle_visibility(OPT.show_sun_vector, OPT.show_axes_labels)
+      self.update_frame()
+      save_persistent_setting('show_sun_vector')
+
+    self.sun_vector_btn = QPushButton(
+      'Sun Vector',
+      checkable=True,
+      checked=OPT.show_sun_vector
+    )
+    self.sun_vector_btn.toggled.connect(toggle_sun_vector)
+
     # axes labels
     def toggle_labels(is_checked):
       OPT.show_axes_labels = is_checked
@@ -426,6 +424,8 @@ class MainWindow(QMainWindow):
       self.body_axes.toggle_visibility(OPT.show_body_axes, OPT.show_axes_labels)
       if OPT.EARTH_AVAILABLE:
         self.lvlh_axes.toggle_visibility(OPT.show_lvlh_axes, OPT.show_axes_labels)
+      if OPT.SUN_AVAILABLE:
+        self.sun_vector.toggle_visibility(OPT.show_sun_vector, OPT.show_axes_labels)
       self.update_frame()
       save_persistent_setting('show_axes_labels')
 
@@ -594,6 +594,8 @@ class MainWindow(QMainWindow):
     if OPT.EARTH_AVAILABLE:
       left_layout.addWidget(self.laxes_btn)
     left_layout.addWidget(self.baxes_btn)
+    if OPT.SUN_AVAILABLE:
+      left_layout.addWidget(self.sun_vector_btn)
     add_divider(left_layout)
     if OPT.EARTH_AVAILABLE:
       left_layout.addWidget(self.earth_btn)
@@ -676,15 +678,21 @@ class MainWindow(QMainWindow):
         normed_srp = np.linalg.norm(self.surface_forces[frame-1].s.f, axis=1) / OPT.SRP_F_MAX
         self.body_mesh.update_lighting(normed_srp, OPT.SAT_AMBIENT_LIGHT)
 
-
-    if OPT.SUN_AVAILABLE and OPT.show_sun:
+    if OPT.SUN_AVAILABLE:
       r_s = self.r_sun_list[frame-1]
-      self.sun.update_position(r_s, OPT.SUN_DISTANCE)
+      # update sun position
+      if OPT.show_sun:
+        self.sun.update_position(r_s, OPT.SUN_DISTANCE)
+
+      if OPT.show_sun_vector:
+        self.sun_vector.rotate_mesh(r_s, OPT.show_axes_labels)
+
 
     if OPT.EARTH_AVAILABLE:
       r = self.r_list[frame-1]
       v = self.v_list[frame-1]
 
+      # update lvlh orientation
       if OPT.show_lvlh_axes:
         dcm_lvlh = get_lvlh(r, v)
         self.lvlh_axes.rotate_mesh(dcm_lvlh, OPT.show_axes_labels)
@@ -778,7 +786,7 @@ class MainWindow(QMainWindow):
       axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(0, 0, 0)
 
       # axes labels
-      for axes in [self.eci_axes, self.body_axes, self.lvlh_axes]:
+      for axes in [self.eci_axes, self.body_axes, self.lvlh_axes, self.sun_vector]:
         if hasattr(axes, 'label_actor'):
           text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
           text_property.SetColor(0, 0, 0)
@@ -787,7 +795,7 @@ class MainWindow(QMainWindow):
       axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
       axes.GetYAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
       axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
-      for axes in [self.eci_axes, self.body_axes, self.lvlh_axes]:
+      for axes in [self.eci_axes, self.body_axes, self.lvlh_axes, self.sun_vector]:
         if hasattr(axes, 'label_actor'):
           text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
           text_property.SetColor(1, 1, 1)

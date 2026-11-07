@@ -109,6 +109,61 @@ def get_lvlh(r, v) -> np.ndarray:
 
   return A
 
+class Vector:
+  def __init__(self, name, col):
+    self.name = name
+    self.col = col
+    self.actor = None
+    self.label_actor = None
+
+  def setup(self, scale, plotter):
+    baseVec = np.array([1, 0, 0])
+    arrow = pv.Arrow(direction=baseVec, shaft_radius=0.04, tip_length=0.2, scale=scale)
+    self.actor = plotter.add_mesh(
+      arrow,
+      color=self.col,
+      name=self.name,
+      ambient=0.5,
+      diffuse=0.5
+    )
+
+    # create axes labels
+    self.label_base_pos = (scale * baseVec)*1.2
+    self.label_points = pv.PolyData(self.label_base_pos.copy())
+    self.label_points.point_data["label"] = [self.name]
+    self.label_actor = plotter.add_point_labels(
+      points=self.label_points,
+      labels="label",
+      show_points=False,
+      shape_opacity=0,
+      font_family='courier',
+      font_size=12,
+      background_color='white',
+      background_opacity=0.2,
+      justification_horizontal='center',
+      justification_vertical='center'
+    )
+
+  def rotate_mesh(self, vSun, show_label):
+    # rotate vector to sun
+    uSun = vSun / np.linalg.norm(vSun)
+    A = rotate_vector([1, 0, 0], uSun)
+
+    self.actor.rotation_from(A)
+
+    # positions of arrow tips for placing labels
+    if show_label:
+      tip_pts = (A @ self.label_base_pos.T)
+      self.label_points.points = tip_pts
+
+  def toggle_visibility(self, show_vector, show_label):
+    self.actor.visibility = show_vector
+
+    if show_vector:
+      self.label_actor.visibility = show_label
+    else:
+      self.label_actor.visibility = False
+
 class Axes:
   def __init__(self, frame_name, cols=('orange_red', 'green', 'blue'), labels=('x', 'y', 'z'), opacity=1):
     self.frame_name = frame_name
@@ -267,8 +322,8 @@ class Body:
       uf = [0, 0, 0]
       if f: uf = forces[i] / f
       if any(uf):
-        rot = pv.Transform().rotate_vector(np.cross([1, 0, 0], uf), np.degrees(np.arccos(np.dot([1, 0, 0], uf))))
-        force_actor.rotation_from(dcm.T @ rot.rotation_matrix)
+        rot = rotate_vector([1, 0, 0], uf)
+        force_actor.rotation_from(dcm.T @ rot)
 
   def update_lighting(self, normed_srp_forces, ambient_lighting):
     for i, f in enumerate(normed_srp_forces):
@@ -400,4 +455,9 @@ def output(message, replace_line=False):
   if replace_line:
     print(f'\r{message}\033[K', end="", flush=True)
   else:
-    print(message, flush=True)  
+    print(message, flush=True)
+
+# returns the rotation matrix that rotates v1 to v2
+def rotate_vector(v1, v2):
+  rot = pv.Transform().rotate_vector(np.cross(v1, v2), np.degrees(np.arccos(np.dot(v1, v2))))
+  return rot.rotation_matrix
