@@ -73,6 +73,16 @@ def gen_cubesat(Lx=0.1, Ly=0.1, Lz=0.3405, gen_solar_panels=True, solar_panel_he
 
     normals.extend([ux, uxn, ux, uxn])
 
+  # align surface windings with normal vectors
+  for i, verts in enumerate(surfaces):
+    verts = np.array(verts)
+    n_wind = np.cross(verts[1] - verts[0], verts[2] - verts[1])
+    if np.dot(n_wind, normals[i]) < 0:
+      verts = verts[::-1]
+    surfaces[i] = verts
+
+  surfaces = [v.tolist() for v in surfaces]
+
   return surfaces, normals
 
 def calc_areas(surfaces):
