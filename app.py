@@ -37,7 +37,7 @@ class MainWindow(QMainWindow):
 
 
     self.N_FRAMES = 1
-    
+
     # read data
     if read_data:
       output('Reading data')
@@ -323,8 +323,10 @@ class MainWindow(QMainWindow):
 
     # directory
     def open_dir_dialog():
-      dir_path = Path(QFileDialog.getExistingDirectory()).resolve()
-      if dir_path:
+      dir_str = QFileDialog.getExistingDirectory(dir=str(OPT.filepath))
+
+      if dir_str:
+        dir_path = Path(dir_str).resolve()
         OPT.filepath = dir_path
         self.dir_btn.setText(f'/{str(OPT.filepath.name)}')
         save_persistent_setting('filepath')
