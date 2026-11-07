@@ -29,7 +29,7 @@ class OPT:
     'show_sun_vector'
   ]
   
-  WINDOW_SIZE: tuple[int, int] = (800, 600)
+  WINDOW_SIZE: tuple[int, int] = (1000, 800)
 
   filepath: Path = Path(sys.executable).resolve().parent
   FILENAME_STATE: str = 'xdata.json'

@@ -326,11 +326,20 @@ class Body:
         force_actor.rotation_from(dcm.T @ rot)
 
   def update_lighting(self, normed_srp_forces, ambient_lighting):
+    a = ambient_lighting[0]
+    b = ambient_lighting[1]
     for i, f in enumerate(normed_srp_forces):
       prop = self.surf_actors[i].prop
       
       if f > 1e-16:
-        prop.ambient = np.clip(f*(ambient_lighting[1]-ambient_lighting[0]) + ambient_lighting[0], 0, 1)
+        # linear:
+        # ambient_value = f*(ambient_lighting[1]-ambient_lighting[0]) + ambient_lighting[0]
+        # logarithmic:
+        # log scale factor
+        sf = 0.3
+        ambient_value = sf * np.log((np.exp((b-a)/sf)-1) * f + 1) + a
+
+        prop.ambient = np.clip(ambient_value, 0, 1)
       else:
         prop.ambient = ambient_lighting[0]
         
