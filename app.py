@@ -823,7 +823,7 @@ class MainWindow(QMainWindow):
     start_time = time.perf_counter()
 
     for frame in range(start, end+1, speed):
-      output(f'Rendering: {frame-start}/{end-start}', replace_line=True)
+      output(f'Rendering: {frame-start+1}/{end-start+1}', replace_line=True)
       self.update_frame(frame)
       self.plotter.write_frame()
 
@@ -832,7 +832,7 @@ class MainWindow(QMainWindow):
         print("\033[2J\033[H", end="", flush=True)
 
     if ((end+1) % speed):
-      output(f'Rendering: {end-start}/{end-start}', replace_line=True)
+      output(f'Rendering: {end-start+1}/{end-start+1}', replace_line=True)
       self.update_frame(end)
       self.plotter.write_frame()
 
