@@ -2,6 +2,7 @@ import pyvista as pv
 import numpy as np
 import json
 from qtpy.QtWidgets import QFrame
+from pathlib import Path
 
 from types import SimpleNamespace
 
@@ -288,7 +289,7 @@ class Earth:
     self.radius = radius
 
     earth_mesh = pv.examples.planets.load_planet(radius=self.radius)
-    earth_texture = pv.examples.load_globe_texture()
+    earth_texture = pv.read_texture(str(Path(__file__).resolve().parent / 'imgs' / 'earth_texture_nasa_bathy.jpg'))
 
     self.actor = plotter.add_mesh(
       earth_mesh,
