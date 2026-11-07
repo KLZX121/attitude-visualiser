@@ -20,7 +20,7 @@ class MainWindow(QMainWindow):
   def __init__(self):
     super().__init__()
 
-    self.setWindowTitle('Attitude Visualiser v1.1')
+    self.setWindowTitle('Attitude Visualiser v1.2')
     self.resize(OPT.WINDOW_SIZE[0], OPT.WINDOW_SIZE[1])
 
     self.setup_window(read_data=False)
@@ -585,6 +585,7 @@ class MainWindow(QMainWindow):
     top_layout.addWidget(self.time_combo, 2)
     top_layout.addWidget(QLabel('Directory:'), 1)
     top_layout.addWidget(self.dir_btn, 2)
+    add_divider(top_layout, orientation=QFrame.VLine)
     top_layout.addWidget(self.read_btn, 2)
     top_layout.addStretch(100)
 
@@ -629,6 +630,7 @@ class MainWindow(QMainWindow):
     bot_bot.addWidget(self.speed_combo)
     bot_bot.addWidget(QLabel('Simulation Timestep (s):'))
     bot_bot.addWidget(self.dt_input)
+    add_divider(bot_bot, orientation=QFrame.VLine)
     bot_bot.addWidget(self.render_btn)
     bot_bot.addStretch()
 
