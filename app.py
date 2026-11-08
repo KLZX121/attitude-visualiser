@@ -10,7 +10,7 @@ from render_settings import RenderSettingsDialog
 
 from pyvistaqt import QtInteractor
 from qtpy.QtCore import Qt, QTimer, QSettings
-from PyQt6.QtGui import QDoubleValidator
+from PyQt6.QtGui import QDoubleValidator, QImage, QGuiApplication
 from qtpy.QtWidgets import *
 
 
@@ -596,6 +596,23 @@ class MainWindow(QMainWindow):
     self.render_btn = QPushButton('Render')
     self.render_btn.clicked.connect(open_render_dialog)
 
+    # screenshot button
+    def take_screenshot():
+      img = self.plotter.screenshot(return_img=True)
+      img = np.ascontiguousarray(img)
+      h, w, ch = img.shape
+      qimg = QImage(img.data, w, h, ch * w, QImage.Format_RGB888).copy()
+      QGuiApplication.clipboard().setImage(qimg)
+
+      self.ss_btn.setText('Copied!')
+      self.ss_timer.start(3000)
+
+    self.ss_btn = QPushButton('Screenshot')
+    self.ss_btn.clicked.connect(take_screenshot)
+    self.ss_timer = QTimer(self)
+    self.ss_timer.setSingleShot(True)
+    self.ss_timer.timeout.connect(lambda: self.ss_btn.setText('Screenshot'))
+
     top_layout = QHBoxLayout()
     top_layout.addWidget(QLabel('Camera:'), 1)
     top_layout.addWidget(self.cam_combo, 2)
@@ -652,6 +669,7 @@ class MainWindow(QMainWindow):
     bot_bot.addWidget(self.dt_input)
     add_divider(bot_bot, orientation=QFrame.VLine)
     bot_bot.addWidget(self.render_btn)
+    bot_bot.addWidget(self.ss_btn)
     bot_bot.addStretch()
 
     bottom_layout = QVBoxLayout()
