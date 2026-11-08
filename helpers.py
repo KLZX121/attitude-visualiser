@@ -230,12 +230,16 @@ class Body:
   def __init__(self, geometry):
     self.geometry = geometry
 
+    self.is_est_body = False
+
     self.surf_actors = []
     self.norm_actors = []
     self.aero_f_actors = []
     self.srp_f_actors = []
 
-  def setup(self, plotter, add_force_actors):
+  def setup(self, plotter, add_force_actors, is_est_body):
+    self.is_est_body = is_est_body
+
     if add_force_actors:
       force_mesh = pv.Arrow(start=(-1, 0, 0), direction=(1, 0, 0), tip_resolution=10, shaft_resolution=10)
 
@@ -243,32 +247,42 @@ class Body:
       # convert vertex data to PolyData with faces
       vertices = pv.PolyData(surface_obj.vertices, np.array([4, 0, 1, 2, 3]))
 
-      mesh_col = None #(0.60, 0.68, 0.80)
-      """ if 'x_pos' in surface_obj.name:
-        mesh_col = 'yellow' """
-      
-      surf_actor = plotter.add_mesh(
-        vertices,
-        color=mesh_col,
-        ambient=0.4,
-        diffuse=0.8,
-        specular=0.5,
-        show_edges=True,
-        culling="back"
-      )
+      if not is_est_body:
+        surf_actor = plotter.add_mesh(
+          vertices,
+          color=None,
+          ambient=0.4,
+          diffuse=0.8,
+          specular=0.5,
+          show_edges=True,
+          culling="back"
+        )
+      else:
+        surf_actor = plotter.add_mesh(
+          vertices,
+          color='white',
+          opacity=0.5,
+          ambient=1,
+          diffuse=0,
+          specular=0,
+          culling="back"
+        )
+
       self.surf_actors.append(surf_actor)
 
-      normal_mesh = pv.Arrow(start=surface_obj.centroid, direction=surface_obj.normal, scale=0.03)
-      arrow_col = None
-      if np.abs(surface_obj.normal).tolist() == [1, 0, 0]:
-        arrow_col = 'red'
-      elif np.abs(surface_obj.normal).tolist() == [0, 1, 0]:
-        arrow_col = 'green'
-      elif np.abs(surface_obj.normal).tolist() == [0, 0, 1]:
-        arrow_col = 'blue'
-        
-      norm_actor = plotter.add_mesh(normal_mesh, color=arrow_col, lighting=False)
-      self.norm_actors.append(norm_actor)
+      # normal vector actors
+      if not is_est_body:
+        normal_mesh = pv.Arrow(start=surface_obj.centroid, direction=surface_obj.normal, scale=0.03)
+        arrow_col = None
+        if np.abs(surface_obj.normal).tolist() == [1, 0, 0]:
+          arrow_col = 'red'
+        elif np.abs(surface_obj.normal).tolist() == [0, 1, 0]:
+          arrow_col = 'green'
+        elif np.abs(surface_obj.normal).tolist() == [0, 0, 1]:
+          arrow_col = 'blue'
+          
+        norm_actor = plotter.add_mesh(normal_mesh, color=arrow_col, lighting=False)
+        self.norm_actors.append(norm_actor)
 
       # surface force actors
       if add_force_actors:
@@ -282,7 +296,12 @@ class Body:
 
   def toggle_visibility(self, OPT):
     for actor in self.surf_actors:
+      if self.is_est_body:
+        actor.visibility = OPT.show_est_body
+        continue
+      
       actor.visibility = OPT.show_body_mesh
+      
       actor.GetProperty().SetEdgeVisibility(OPT.show_edges)
       actor.GetProperty().SetOpacity(0.5 if OPT.transparent else 1)
       

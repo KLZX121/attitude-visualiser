@@ -178,7 +178,7 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
       main_window.plotter.close()
       QApplication.processEvents()
 
-      main_window.setup_window(read_data=True)
+      main_window.setup_window(read_data=True, setup_ui=True)
   main_window.read_btn = QPushButton('Read Data')
   main_window.read_btn.clicked.connect(reread_dir)
 
@@ -431,6 +431,22 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
   main_window.ss_timer.setSingleShot(True)
   main_window.ss_timer.timeout.connect(lambda: main_window.ss_btn.setText('Screenshot'))
 
+
+  # estimated attitude
+  def toggle_est(is_checked):
+    OPT.show_est_body = is_checked
+    main_window.est_body.toggle_visibility(OPT)
+
+    main_window.update_frame()
+    save_persistent_setting('show_est_body')
+
+  main_window.est_att_btn = QPushButton(
+    'Estimated Att.',
+    checkable=True
+  )
+  main_window.est_att_btn.toggled.connect(toggle_est)
+
+
   top_layout = QHBoxLayout()
   top_layout.addWidget(QLabel('Camera:'), 1)
   top_layout.addWidget(main_window.cam_combo, 2)
@@ -456,10 +472,12 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
   left_layout.addWidget(main_window.baxes_btn)
   if OPT.SUN_AVAILABLE:
     left_layout.addWidget(main_window.sun_vector_btn)
-  add_divider(left_layout)
   if OPT.EARTH_AVAILABLE:
+    add_divider(left_layout)
     left_layout.addWidget(main_window.earth_btn)
   if OPT.SUN_AVAILABLE:
+    if not OPT.EARTH_AVAILABLE:
+      add_divider(left_layout)
     left_layout.addWidget(main_window.sun_btn)
   if OPT.GEOMETRY_AVAILABLE:
     add_divider(left_layout)
@@ -470,6 +488,9 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
     if OPT.FORCES_AVAILABLE:
       left_layout.addWidget(main_window.lighting_btn)
       left_layout.addWidget(main_window.forces_combo)
+  if OPT.EST_AVAILABLE:
+    add_divider(left_layout)
+    left_layout.addWidget(main_window.est_att_btn)
   left_layout.addStretch()
 
 

@@ -26,7 +26,8 @@ class OPT:
     'show_srp_f',
     'show_earth',
     'show_sun',
-    'show_sun_vector'
+    'show_sun_vector',
+    'show_est_body'
   ]
   
   WINDOW_SIZE: tuple[int, int] = (1000, 800)
@@ -36,12 +37,14 @@ class OPT:
   FILENAME_GEOMETRY: str = 'geometry.json'
   FILENAME_SURFACE_FORCES: str = 'surfdata.json'
   FILENAME_SUN_POS: str = 'rs.json'
+  FILENAME_EST: str = 'qest.json'
 
   FILE_AVAILABLE: bool = False
   EARTH_AVAILABLE: bool = False
   GEOMETRY_AVAILABLE: bool = False
   FORCES_AVAILABLE: bool = False
   SUN_AVAILABLE: bool = False
+  EST_AVAILABLE: bool = False
 
   # simulation stepsize (dt)
   simulation_timestep: int = 1
@@ -114,3 +117,5 @@ class OPT:
   show_sun: bool = True
 
   show_sun_vector: bool = True
+
+  show_est_body: bool = False

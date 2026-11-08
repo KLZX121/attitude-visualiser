@@ -22,9 +22,9 @@ class MainWindow(QMainWindow):
     self.setWindowTitle('Attitude Visualiser v1.2')
     self.resize(OPT.WINDOW_SIZE[0], OPT.WINDOW_SIZE[1])
 
-    self.setup_window(read_data=False)
+    self.setup_window(read_data=False, setup_ui=True)
 
-  def setup_window(self, read_data):
+  def setup_window(self, read_data, setup_ui):
     output('Setting up window')
 
     persistent_settings = QSettings('AttitudeVisualiser', 'AttitudeVisualiser')
@@ -34,8 +34,8 @@ class MainWindow(QMainWindow):
       if persistent_settings.contains(name):
         setattr(OPT, name, persistent_settings.value(name, default, type=type(default)))
 
-
-    self.N_FRAMES = 1
+    if not hasattr(self, 'N_FRAMES'):
+      self.N_FRAMES = 1
 
     # read data
     if read_data:
@@ -83,21 +83,27 @@ class MainWindow(QMainWindow):
         OPT.SUN_AVAILABLE = False
         output(f'The file: \'{OPT.filepath / OPT.FILENAME_SUN_POS}\' could not be found.')
 
+      self.dcm_est_list, _, _ = read_state_data(OPT.filepath / OPT.FILENAME_EST, (0, 4), None, None)
+      if self.dcm_est_list:
+        OPT.EST_AVAILABLE = True
+        output(f'Attitude estimation file found ({OPT.FILENAME_EST}).')
+      else:
+        OPT.EST_AVAILABLE = False
 
-    output('Setting up GUI')
     # create central widget and layout
-    central_widget = QWidget()
-    central_layout = QVBoxLayout(central_widget)
-    self.setCentralWidget(central_widget)
-
+    if setup_ui:
+      central_widget = QWidget()
+      central_layout = QVBoxLayout(central_widget)
+      self.setCentralWidget(central_widget)
 
     # setup PyVista viewport
+    output('Setting up plotter')
     plotter_widget = self.setup_plotter(central_widget)
 
-    
     # setup control buttons and settings
-    setup_controls(self, central_layout, plotter_widget, OPT, persistent_settings)
-
+    if setup_ui:
+      output('Setting up UI')
+      setup_controls(self, central_layout, plotter_widget, OPT, persistent_settings)
 
     # reset camera
     self.plotter.reset_camera(bounds=(-OPT.GEOMETRY_SCALE, OPT.GEOMETRY_SCALE)*3)
@@ -133,7 +139,7 @@ class MainWindow(QMainWindow):
     # plot satellite body
     if OPT.GEOMETRY_AVAILABLE:              
       self.body_mesh = Body(self.geometry_data)
-      self.body_mesh.setup(self.plotter, OPT.FORCES_AVAILABLE)
+      self.body_mesh.setup(self.plotter, OPT.FORCES_AVAILABLE, is_est_body=False)
       self.body_mesh.toggle_visibility(OPT)
 
     # plot earth
@@ -168,6 +174,12 @@ class MainWindow(QMainWindow):
 
       if not OPT.show_sun_vector:
         self.sun_vector.toggle_visibility(OPT.show_sun_vector, OPT.show_axes_labels)
+
+    # draw estimated attitude
+    if OPT.EST_AVAILABLE:
+      self.est_body = Body(self.geometry_data)
+      self.est_body.setup(self.plotter, False, is_est_body=True)
+      self.est_body.toggle_visibility(OPT)
 
     # 16k starry skybox (Stars)
     skybox_texture = pv.examples.download_cubemap_space_16k().to_skybox()
@@ -221,6 +233,10 @@ class MainWindow(QMainWindow):
       if OPT.FORCES_AVAILABLE and OPT.lighting:
         normed_srp = np.linalg.norm(self.surface_forces[frame-1].s.f, axis=1) / OPT.SRP_F_MAX
         self.body_mesh.update_lighting(normed_srp, OPT.SAT_AMBIENT_LIGHT)
+
+    # update estimated body attitude
+    if OPT.EST_AVAILABLE and OPT.show_est_body:
+      self.est_body.rotate_mesh(self.dcm_est_list[frame-1], False)
 
     if OPT.SUN_AVAILABLE:
       r_s = self.r_sun_list[frame-1]
@@ -381,7 +397,7 @@ class MainWindow(QMainWindow):
     output(f'\nRendering complete: {end_time}s elapsed')
     output(f'Render output at: {output_path}')
 
-    self.setup_window(read_data=False)
+    self.setup_window(read_data=False, setup_ui=False)
 
   def start_interaction_cb(self, *_):
     self.user_interacting = True
