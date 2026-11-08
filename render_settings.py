@@ -60,34 +60,47 @@ class RenderSettingsDialog(QDialog):
     browse_button.clicked.connect(self.browse_directory)
     directory_layout.addWidget(self.output_dir)
     directory_layout.addWidget(browse_button)
-
     output_layout.addRow("Directory:", directory_layout)
 
     # output file type
     self.output_type = QComboBox()
     self.output_type.addItems(["MP4", "GIF"])
     self.output_type.setCurrentText(output_type.upper())
-
     output_layout.addRow("Format:", self.output_type)
 
     # Quality
     self.quality_int = QSpinBox()
     self.quality_int.setRange(1, 9)
     self.quality_int.setValue(quality)
-
     output_layout.addRow("MP4 Quality:", self.quality_int)
 
     # FPS
     self.fps_int = QSpinBox()
     self.fps_int.setRange(1, 120)
     self.fps_int.setValue(30)
-
     output_layout.addRow("FPS:", self.fps_int)
+
+    # final video length info
+    self.vid_length = QLabel()
+    output_layout.addRow('Video Length:', self.vid_length)
+    def set_vid_length():
+      n_frames = self.end_frame.value() - self.start_frame.value() + 1
+      sec = n_frames / self.frame_speed.value() / self.fps_int.value()
+
+      t_format = f'{((sec // 60) % 60):.0f} m {(sec % 60):.2f} s'
+
+      self.vid_length.setText(t_format)
+    set_vid_length()
+    self.end_frame.valueChanged.connect(set_vid_length)
+    self.start_frame.valueChanged.connect(set_vid_length)
+    self.frame_speed.valueChanged.connect(set_vid_length)
+    self.fps_int.valueChanged.connect(set_vid_length)
+
 
     layout.addWidget(output_group)
 
     # info
-    layout.addWidget(QLabel("Note: Render resolution depends on the current window size.\nUse fullscreen for best resolution"))
+    layout.addWidget(QLabel("Note: Render resolution depends on the current window size.\nUse fullscreen for best resolution."))
 
     # OK / Cancel buttons
     buttons = QDialogButtonBox(
