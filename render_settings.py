@@ -44,29 +44,31 @@ class RenderSettingsDialog(QDialog):
 
     layout.addWidget(frame_group)
 
-    # Output settings
+
     output_group = QGroupBox("Output")
     output_layout = QFormLayout(output_group)
 
+    # output name
+    self.output_name = QLineEdit('render')
+    output_layout.addRow("Name:", self.output_name)
+
+    # Output directory
+    directory_layout = QHBoxLayout()
+    self.output_dir = QLineEdit(output_dir)
+    self.output_dir.setPlaceholderText("Choose output directory...")
+    browse_button = QPushButton("Browse...")
+    browse_button.clicked.connect(self.browse_directory)
+    directory_layout.addWidget(self.output_dir)
+    directory_layout.addWidget(browse_button)
+
+    output_layout.addRow("Directory:", directory_layout)
+
+    # output file type
     self.output_type = QComboBox()
     self.output_type.addItems(["MP4", "GIF"])
     self.output_type.setCurrentText(output_type.upper())
 
     output_layout.addRow("Format:", self.output_type)
-
-    # Output directory
-    directory_layout = QHBoxLayout()
-
-    self.output_dir = QLineEdit(output_dir)
-    self.output_dir.setPlaceholderText("Choose output directory...")
-
-    browse_button = QPushButton("Browse...")
-    browse_button.clicked.connect(self.browse_directory)
-
-    directory_layout.addWidget(self.output_dir)
-    directory_layout.addWidget(browse_button)
-
-    output_layout.addRow("Directory:", directory_layout)
 
     # Quality
     self.quality_int = QSpinBox()
@@ -131,11 +133,15 @@ class RenderSettingsDialog(QDialog):
     super().accept()
 
   def get_settings(self):
+    output_dir = self.output_dir.text().strip()
+    output_name = self.output_name.text().strip()
+    output_type = self.output_type.currentText().lower()
+
     return {
       "start_frame": self.start_frame.value(),
       "end_frame": self.end_frame.value(),
-      "output_type": self.output_type.currentText().lower(),
-      "output_dir": self.output_dir.text().strip(),
+      "output_path": f'{output_dir}/{output_name}.{output_type}',
+      "output_type": output_type,
       "quality": self.quality_int.value(),
       "speed": self.frame_speed.value(),
       "fps": self.fps_int.value()

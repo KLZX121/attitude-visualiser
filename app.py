@@ -348,12 +348,10 @@ class MainWindow(QMainWindow):
     start = settings["start_frame"]
     end = settings["end_frame"]
     output_type = settings["output_type"]
-    output_dir = Path(settings["output_dir"])
+    output_path = Path(settings["output_path"])
     quality = settings["quality"]
     speed = settings["speed"]
     fps = settings["fps"]
-
-    output_path = output_dir / f"render.{output_type}"
 
     if output_type == "mp4":
       self.plotter.open_movie(str(output_path), framerate=fps, quality=quality)
