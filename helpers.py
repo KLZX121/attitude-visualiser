@@ -250,9 +250,9 @@ class Body:
       surf_actor = plotter.add_mesh(
         vertices,
         color=mesh_col,
-        ambient=0,
-        diffuse=0,
-        specular=0,
+        ambient=0.4,
+        diffuse=0.8,
+        specular=0.5,
         show_edges=True,
         culling="back"
       )
@@ -287,9 +287,10 @@ class Body:
       actor.GetProperty().SetOpacity(0.5 if OPT.transparent else 1)
       
       # toggle lighting
-      actor.prop.ambient = 0 if OPT.lighting else 0.4
-      actor.prop.diffuse = 0 if OPT.lighting else 0.8
-      actor.prop.specular = 0 if OPT.lighting else 0.5
+      if OPT.SUN_AVAILABLE:
+        actor.prop.ambient = 0 if OPT.lighting else 0.4
+        actor.prop.diffuse = 0 if OPT.lighting else 0.8
+        actor.prop.specular = 0 if OPT.lighting else 0.5
 
     for actor in self.norm_actors:
       actor.visibility = OPT.show_normals if OPT.show_body_mesh else False
@@ -337,8 +338,8 @@ class Body:
         # ambient_value = f*(ambient_lighting[1]-ambient_lighting[0]) + ambient_lighting[0]
         # logarithmic:
         # log scale factor
-        sf = 0.3
-        ambient_value = sf * np.log((np.exp((b-a)/sf)-1) * f + 1) + a
+        sf = 0.15
+        ambient_value = sf * np.log(( np.exp((b-a)/sf)-1 ) * f + 1) + a
 
         prop.ambient = np.clip(ambient_value, 0, 1)
       else:
@@ -354,7 +355,7 @@ class Earth:
     self.radius = radius
 
     earth_mesh = pv.examples.planets.load_planet(radius=self.radius)
-    earth_texture = pv.read_texture(str(Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "imgs/earth_texture_nasa_bathy.jpg"))
+    earth_texture = pv.read_texture(str(Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent)) / "imgs/earth_texture_nasa_bathy_fullres.jpg"))
 
     self.actor = plotter.add_mesh(
       earth_mesh,
