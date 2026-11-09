@@ -375,27 +375,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
   main_window.forces_combo.addItems(['None', 'All', 'Aero', 'SRP'])
   main_window.forces_combo.currentTextChanged.connect(change_forces)
 
-
-  if OPT.GEOMETRY_AVAILABLE:
-    main_window.body_mesh_btn.setChecked(OPT.show_body_mesh)
-    main_window.norm_btn.setChecked(OPT.show_normals)
-    main_window.edge_btn.setChecked(OPT.show_edges)
-    main_window.transparency_btn.setChecked(OPT.transparent)
-
-    if OPT.FORCES_AVAILABLE:
-      if OPT.show_srp_f and OPT.show_aero_f:
-        current_force = 'All'
-      elif OPT.show_aero_f:
-        current_force = 'Aero'
-      elif OPT.show_srp_f:
-        current_force = 'SRP'
-      else:
-        current_force = 'None'
-      main_window.forces_combo.setCurrentText(current_force)
-
-      main_window.lighting_btn.setChecked(OPT.lighting)
-
-
   # render button
   def open_render_dialog():
     dialog = RenderSettingsDialog(
@@ -447,6 +426,29 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
   main_window.est_att_btn.toggled.connect(toggle_est)
 
 
+  if OPT.GEOMETRY_AVAILABLE:
+    main_window.body_mesh_btn.setChecked(OPT.show_body_mesh)
+    main_window.norm_btn.setChecked(OPT.show_normals)
+    main_window.edge_btn.setChecked(OPT.show_edges)
+    main_window.transparency_btn.setChecked(OPT.transparent)
+
+    if OPT.FORCES_AVAILABLE:
+      if OPT.show_srp_f and OPT.show_aero_f:
+        current_force = 'All'
+      elif OPT.show_aero_f:
+        current_force = 'Aero'
+      elif OPT.show_srp_f:
+        current_force = 'SRP'
+      else:
+        current_force = 'None'
+      main_window.forces_combo.setCurrentText(current_force)
+
+      main_window.lighting_btn.setChecked(OPT.lighting)
+
+  if OPT.EST_AVAILABLE:
+    main_window.est_att_btn.setChecked(OPT.show_est_body)
+
+  
   top_layout = QHBoxLayout()
   top_layout.addWidget(QLabel('Camera:'), 1)
   top_layout.addWidget(main_window.cam_combo, 2)

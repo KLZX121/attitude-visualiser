@@ -27,8 +27,8 @@ class MainWindow(QMainWindow):
   def setup_window(self, read_data, setup_ui):
     output('Setting up window')
 
-    persistent_settings = QSettings('AttitudeVisualiser', 'AttitudeVisualiser')
     # load persistent settings
+    persistent_settings = QSettings('AttitudeVisualiser', 'AttitudeVisualiser')
     for name in OPT.PERSISTENT_SETTINGS:
       default = getattr(OPT, name)
       if persistent_settings.contains(name):
