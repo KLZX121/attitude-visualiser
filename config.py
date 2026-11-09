@@ -27,7 +27,8 @@ class OPT:
     'show_earth',
     'show_sun',
     'show_sun_vector',
-    'show_est_body'
+    'show_est_body',
+    'show_est_axes'
   ]
   
   WINDOW_SIZE: tuple[int, int] = (1000, 800)
@@ -119,3 +120,4 @@ class OPT:
   show_sun_vector: bool = True
 
   show_est_body: bool = False
+  show_est_axes: bool = True

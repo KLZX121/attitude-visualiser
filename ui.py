@@ -268,6 +268,8 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
       main_window.lvlh_axes.toggle_visibility(OPT.show_lvlh_axes, OPT.show_axes_labels)
     if OPT.SUN_AVAILABLE:
       main_window.sun_vector.toggle_visibility(OPT.show_sun_vector, OPT.show_axes_labels)
+    if OPT.EST_AVAILABLE:
+      main_window.est_axes.toggle_visibility(OPT.show_est_axes, OPT.show_axes_labels)
     main_window.update_frame()
     save_persistent_setting('show_axes_labels')
 
@@ -412,7 +414,7 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
 
 
   # estimated attitude
-  def toggle_est(is_checked):
+  def toggle_est_body(is_checked):
     OPT.show_est_body = is_checked
     main_window.est_body.toggle_visibility(OPT)
 
@@ -420,10 +422,25 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
     save_persistent_setting('show_est_body')
 
   main_window.est_att_btn = QPushButton(
-    'Estimated Att.',
-    checkable=True
+    'Est. Body',
+    checkable=True,
+    checked=OPT.show_est_body
   )
-  main_window.est_att_btn.toggled.connect(toggle_est)
+  main_window.est_att_btn.toggled.connect(toggle_est_body)
+
+  # est axes toggle
+  def toggle_est_axes(is_checked):
+    OPT.show_est_axes = is_checked
+    main_window.est_axes.toggle_visibility(OPT.show_est_axes, OPT.show_axes_labels)
+    main_window.update_frame()
+    save_persistent_setting('show_est_axes')
+
+  main_window.est_axes_btn = QPushButton(
+    'Est. Axes',
+    checkable=True,
+    checked=OPT.show_est_axes
+  )
+  main_window.est_axes_btn.toggled.connect(toggle_est_axes)
 
 
   if OPT.GEOMETRY_AVAILABLE:
@@ -444,9 +461,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
       main_window.forces_combo.setCurrentText(current_force)
 
       main_window.lighting_btn.setChecked(OPT.lighting)
-
-  if OPT.EST_AVAILABLE:
-    main_window.est_att_btn.setChecked(OPT.show_est_body)
 
   
   top_layout = QHBoxLayout()
@@ -492,7 +506,9 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
       left_layout.addWidget(main_window.forces_combo)
   if OPT.EST_AVAILABLE:
     add_divider(left_layout)
-    left_layout.addWidget(main_window.est_att_btn)
+    if OPT.GEOMETRY_AVAILABLE:
+      left_layout.addWidget(main_window.est_att_btn)
+    left_layout.addWidget(main_window.est_axes_btn)
   left_layout.addStretch()
 
 

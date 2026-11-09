@@ -176,10 +176,16 @@ class MainWindow(QMainWindow):
         self.sun_vector.toggle_visibility(OPT.show_sun_vector, OPT.show_axes_labels)
 
     # draw estimated attitude
+    self.est_axes = None
     if OPT.EST_AVAILABLE:
-      self.est_body = Body(self.geometry_data)
-      self.est_body.setup(self.plotter, False, is_est_body=True)
-      self.est_body.toggle_visibility(OPT)
+      self.est_axes = Axes(frame_name='est', opacity=0.5)
+      self.est_axes.setup(np.eye(3), OPT.GEOMETRY_SCALE, self.plotter)
+      self.est_axes.toggle_visibility(OPT.show_est_axes, OPT.show_axes_labels)
+
+      if OPT.GEOMETRY_AVAILABLE:
+        self.est_body = Body(self.geometry_data)
+        self.est_body.setup(self.plotter, False, is_est_body=True)
+        self.est_body.toggle_visibility(OPT)
 
     # 16k starry skybox (Stars)
     skybox_texture = pv.examples.download_cubemap_space_16k().to_skybox()
@@ -235,8 +241,12 @@ class MainWindow(QMainWindow):
         self.body_mesh.update_lighting(normed_srp, OPT.SAT_AMBIENT_LIGHT)
 
     # update estimated body attitude
-    if OPT.EST_AVAILABLE and OPT.show_est_body:
-      self.est_body.rotate_mesh(self.dcm_est_list[frame-1], False)
+    if OPT.EST_AVAILABLE:
+      dcm_est = self.dcm_est_list[frame-1]
+      if OPT.show_est_axes:
+        self.est_axes.rotate_mesh(dcm_est, show_labels=OPT.show_axes_labels)
+      if OPT.GEOMETRY_AVAILABLE and OPT.show_est_body:
+        self.est_body.rotate_mesh(dcm_est, show_normals=False)
 
     if OPT.SUN_AVAILABLE:
       r_s = self.r_sun_list[frame-1]
@@ -346,7 +356,7 @@ class MainWindow(QMainWindow):
       axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(0, 0, 0)
 
       # axes labels
-      for axes in [self.eci_axes, self.body_axes, self.lvlh_axes, self.sun_vector]:
+      for axes in [self.eci_axes, self.body_axes, self.lvlh_axes, self.sun_vector, self.est_axes]:
         if hasattr(axes, 'label_actor'):
           text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
           text_property.SetColor(0, 0, 0)
@@ -355,7 +365,7 @@ class MainWindow(QMainWindow):
       axes.GetXAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
       axes.GetYAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
       axes.GetZAxisCaptionActor2D().GetCaptionTextProperty().SetColor(1, 1, 1)
-      for axes in [self.eci_axes, self.body_axes, self.lvlh_axes, self.sun_vector]:
+      for axes in [self.eci_axes, self.body_axes, self.lvlh_axes, self.sun_vector, self.est_axes]:
         if hasattr(axes, 'label_actor'):
           text_property = axes.label_actor.GetMapper().GetInputConnection(0, 0).GetProducer().GetTextProperty()
           text_property.SetColor(1, 1, 1)
