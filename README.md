@@ -11,9 +11,10 @@ Attitude and other relevant data is read from user given JSON files. See [Steps]
 **Attitude**
 * View satellite attitude as static frames at each timestep or as an animation over a simulation time period
 * Includes ECI, and Body frame axes
+* Optionally also view estimated attitude state
 
 **Orbit**
-* View satellite orbital position relative to the Earth
+* View satellite orbital position relative to ECI (note that position relative to Earth's surface is not supported)
 * Includes LVLH axes and Earth object
 
 **Satellite Geometry and Disturbances**
@@ -34,6 +35,7 @@ Attitude and other relevant data is read from user given JSON files. See [Steps]
 4. Show/hide visualiser features to fit your analysis
 5. Press `Play`, use the playback slider, or press the `<`/`>` buttons to view each timestep
 6. Press `Render` and adjust the settings to produce a video file
+7. Press `Screenshot` to copy an image of the current frame
 
 ---
 
@@ -79,14 +81,18 @@ and `a.t` contain a list of aerodynamic forces and torques for each panel, and `
 
 Optional file for Sun position. Given as a 2D array: list of position vectors (ECI) at each timestep: `int[3][]`.
 
+**qest.json**
+
+Optional file for estimated attitude state. Given as a 2D array: list of quaternions at each timestep. Same format as `xdata.json` without the extra states.
+
 ---
 
 ### Example Files
 These are the first two timesteps of an example simulation from a 3U CubeSat.
 
-**xdata.json**
+**xdata.json** and **qest.json**
 
-Indices are `I_R = (0, 3), I_V = (3, 6), I_Q = (6, 10)`. Note also that there are additional states from indices 10 - 15 that are ignored.
+Indices are `I_R = (0, 3), I_V = (3, 6), I_Q = (6, 10)`. Note also that there are additional states from indices 10 - 15 that are ignored. `qest.json` would have the quaternions in the first four indices.
 ```
 [
 	[
