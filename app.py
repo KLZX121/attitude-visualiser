@@ -98,12 +98,16 @@ class MainWindow(QMainWindow):
 
     # setup PyVista viewport
     output('Setting up plotter')
-    plotter_widget = self.setup_plotter(central_widget)
+    plotter_widget = self.setup_plotter(self.centralWidget())
 
     # setup control buttons and settings
     if setup_ui:
       output('Setting up UI')
       setup_controls(self, central_layout, plotter_widget, OPT, persistent_settings)
+    else:
+      old_plot_widget = self.middle_layout.takeAt(self.middle_layout.count() - 1)
+      old_plot_widget.widget().deleteLater()
+      self.middle_layout.addWidget(plotter_widget)
 
     # reset camera
     self.plotter.reset_camera(bounds=(-OPT.GEOMETRY_SCALE, OPT.GEOMETRY_SCALE)*3)

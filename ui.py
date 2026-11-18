@@ -535,13 +535,13 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
   bottom_layout.addLayout(bot_bot)
 
   # middle layout
-  middle_layout = QHBoxLayout()
-  middle_layout.addLayout(left_layout)
-  middle_layout.addWidget(plotter_widget, 1)
+  main_window.middle_layout = QHBoxLayout()
+  main_window.middle_layout.addLayout(left_layout)
+  main_window.middle_layout.addWidget(plotter_widget, 1)
 
   # add everything to central layout
   central_layout.addLayout(top_layout)
-  central_layout.addLayout(middle_layout)
+  central_layout.addLayout(main_window.middle_layout)
   central_layout.addLayout(bottom_layout)
 
   return top_layout, bottom_layout, left_layout
