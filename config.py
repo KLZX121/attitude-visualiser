@@ -29,7 +29,8 @@ class OPT:
     'show_sun_vector',
     'show_est_body',
     'show_est_axes',
-    'outlines_col'
+    'outlines_col',
+    'show_origin'
   ]
   
   WINDOW_SIZE: tuple[int, int] = (1000, 800)
@@ -101,6 +102,8 @@ class OPT:
   # background image/skybox
   BACKGROUNDS = ['Black', 'White', 'Stars']
   background = 'Black'
+
+  show_origin: bool = True
 
   show_eci_axes: bool = False
   show_body_axes: bool = False

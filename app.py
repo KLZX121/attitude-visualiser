@@ -110,8 +110,7 @@ class MainWindow(QMainWindow):
       self.middle_layout.addWidget(plotter_widget)
 
     # reset camera
-    self.plotter.reset_camera(bounds=(-OPT.GEOMETRY_SCALE, OPT.GEOMETRY_SCALE)*3)
-    self.end_interaction_cb()
+    self.reset_cam()
 
     output('Finished setup')
 
@@ -138,7 +137,8 @@ class MainWindow(QMainWindow):
       self.lvlh_axes.toggle_visibility(OPT.show_lvlh_axes, OPT.show_axes_labels)
 
     # plot satellite com
-    self.plotter.add_mesh(pv.Sphere(radius=OPT.GEOMETRY_SCALE*0.05), color='grey')
+    self.com = self.plotter.add_mesh(pv.Sphere(radius=OPT.GEOMETRY_SCALE*0.05), color='grey')
+    self.com.visibility = OPT.show_origin
 
     # plot satellite body
     if OPT.GEOMETRY_AVAILABLE:              
@@ -229,7 +229,7 @@ class MainWindow(QMainWindow):
       self.body_axes.rotate_mesh(dcm, OPT.show_axes_labels)
 
     # update satellite body orientation
-    if OPT.GEOMETRY_AVAILABLE and OPT.show_body_mesh:
+    if OPT.GEOMETRY_AVAILABLE and (OPT.show_body_mesh or OPT.outlines_col != False):
       self.body_mesh.rotate_mesh(dcm, OPT.show_normals, OPT.outlines_col != False)
 
       # update surface forces
@@ -437,6 +437,11 @@ class MainWindow(QMainWindow):
   def closeEvent(self, event):
     self.plotter.close()
     event.accept()
+
+  def reset_cam(self):
+    self.plotter.reset_camera(bounds=(-OPT.GEOMETRY_SCALE, OPT.GEOMETRY_SCALE)*3)
+    self.end_interaction_cb()
+
 
 
 def main():

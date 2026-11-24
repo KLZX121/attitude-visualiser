@@ -13,6 +13,7 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
     value = getattr(OPT, name)
     persistent_settings.setValue(name, value)
 
+  # ================================= PLAYBACK =================================
 
   # play pause button
   def toggle_play(is_checked):
@@ -126,6 +127,24 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
   main_window.dt_input.textChanged.connect(update_dt)
   main_window.dt_input.setMaximumWidth(80)
 
+  # ================================= VIEW =================================
+
+  # origin
+  def toggle_origin(is_checked):
+    OPT.show_origin = is_checked
+
+    main_window.com.visibility = OPT.show_origin
+    main_window.reset_cam()
+
+    main_window.update_frame()
+    save_persistent_setting('show_origin')
+  main_window.origin_btn = QPushButton(
+    'Origin',
+    checkable=True,
+    checked=OPT.show_origin
+  )
+  main_window.origin_btn.toggled.connect(toggle_origin)
+
   # camera tracking mode
   def switch_cam(label):
     OPT.tracking_camera = label
@@ -182,6 +201,7 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
   main_window.read_btn = QPushButton('Read Data')
   main_window.read_btn.clicked.connect(reread_dir)
 
+  # ================================= TOGGLES =================================
 
   # earth toggle
   def toggle_earth(is_checked):
@@ -189,7 +209,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
     main_window.earth.toggle_visibility(OPT.show_earth)
     main_window.update_frame()
     save_persistent_setting('show_earth')
-
   main_window.earth_btn = QPushButton('Earth', checkable=True, checked=OPT.show_earth)
   main_window.earth_btn.toggled.connect(toggle_earth)
 
@@ -199,7 +218,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
     main_window.sun.toggle_visibility(main_window.plotter, OPT.show_sun)
     main_window.update_frame()
     save_persistent_setting('show_sun')
-
   main_window.sun_btn = QPushButton('Sun', checkable=True, checked=OPT.show_sun)
   main_window.sun_btn.toggled.connect(toggle_sun)
 
@@ -209,7 +227,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
     main_window.eci_axes.toggle_visibility(OPT.show_eci_axes, OPT.show_axes_labels)
     main_window.update_frame()
     save_persistent_setting('show_eci_axes')
-
   main_window.raxes_btn = QPushButton(
     'ECI Axes',
     checkable=True,
@@ -223,7 +240,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
     main_window.body_axes.toggle_visibility(OPT.show_body_axes, OPT.show_axes_labels)
     main_window.update_frame()
     save_persistent_setting('show_body_axes')
-
   main_window.baxes_btn = QPushButton(
     'Body Axes',
     checkable=True,
@@ -237,7 +253,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
     main_window.lvlh_axes.toggle_visibility(OPT.show_lvlh_axes, OPT.show_axes_labels)
     main_window.update_frame()
     save_persistent_setting('show_lvlh_axes')
-
   main_window.laxes_btn = QPushButton(
     'LVLH Axes',
     checkable=True,
@@ -251,7 +266,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
     main_window.sun_vector.toggle_visibility(OPT.show_sun_vector, OPT.show_axes_labels)
     main_window.update_frame()
     save_persistent_setting('show_sun_vector')
-
   main_window.sun_vector_btn = QPushButton(
     'Sun Vector',
     checkable=True,
@@ -272,7 +286,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
       main_window.est_axes.toggle_visibility(OPT.show_est_axes, OPT.show_axes_labels)
     main_window.update_frame()
     save_persistent_setting('show_axes_labels')
-
   main_window.labels_btn = QPushButton('Axes Labels', checkable=True, checked=OPT.show_axes_labels)
   main_window.labels_btn.toggled.connect(toggle_labels)
 
@@ -292,7 +305,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
 
       main_window.update_frame()
       save_persistent_setting('show_body_mesh')
-
     main_window.body_mesh_btn = QPushButton(
       'Satellite',
       checkable=True
@@ -308,7 +320,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
 
       main_window.update_frame()
       save_persistent_setting('show_normals')
-
     main_window.norm_btn = QPushButton(
       'Normals',
       checkable=True,
@@ -392,7 +403,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
         main_window.update_frame()
         save_persistent_setting('show_aero_f')
         save_persistent_setting('show_srp_f')
-
       main_window.forces_combo = QComboBox(enabled=OPT.show_body_mesh)
       main_window.forces_combo.addItems(['None', 'All', 'Aero', 'SRP'])
       main_window.forces_combo.currentTextChanged.connect(change_forces)
@@ -407,7 +417,36 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
       main_window.forces_combo.setCurrentText(current_force)
 
     main_window.body_mesh_btn.setChecked(OPT.show_body_mesh)
-  
+
+  if OPT.EST_AVAILABLE:
+    # estimated attitude
+    def toggle_est_body(is_checked):
+      OPT.show_est_body = is_checked
+      main_window.est_body.toggle_visibility(OPT)
+
+      main_window.update_frame()
+      save_persistent_setting('show_est_body')
+    main_window.est_att_btn = QPushButton(
+      'Est. Body',
+      checkable=True,
+      checked=OPT.show_est_body
+    )
+    main_window.est_att_btn.toggled.connect(toggle_est_body)
+
+    # est axes toggle
+    def toggle_est_axes(is_checked):
+      OPT.show_est_axes = is_checked
+      main_window.est_axes.toggle_visibility(OPT.show_est_axes, OPT.show_axes_labels)
+      main_window.update_frame()
+      save_persistent_setting('show_est_axes')
+    main_window.est_axes_btn = QPushButton(
+      'Est. Axes',
+      checkable=True,
+      checked=OPT.show_est_axes
+    )
+    main_window.est_axes_btn.toggled.connect(toggle_est_axes)
+
+  # ================================= OUTPUT =================================
 
   # render button
   def open_render_dialog():
@@ -423,7 +462,6 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
     if dialog.exec():
       settings = dialog.get_settings()
       main_window.render_animation(settings)
-
   main_window.render_btn = QPushButton('Render')
   main_window.render_btn.clicked.connect(open_render_dialog)
 
@@ -437,46 +475,15 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
 
     main_window.ss_btn.setText('Copied!')
     main_window.ss_timer.start(3000)
-
   main_window.ss_btn = QPushButton('Screenshot')
   main_window.ss_btn.clicked.connect(take_screenshot)
   main_window.ss_timer = QTimer(main_window)
   main_window.ss_timer.setSingleShot(True)
   main_window.ss_timer.timeout.connect(lambda: main_window.ss_btn.setText('Screenshot'))
 
-
-  if OPT.EST_AVAILABLE:
-    # estimated attitude
-    def toggle_est_body(is_checked):
-      OPT.show_est_body = is_checked
-      main_window.est_body.toggle_visibility(OPT)
-
-      main_window.update_frame()
-      save_persistent_setting('show_est_body')
-
-    main_window.est_att_btn = QPushButton(
-      'Est. Body',
-      checkable=True,
-      checked=OPT.show_est_body
-    )
-    main_window.est_att_btn.toggled.connect(toggle_est_body)
-
-    # est axes toggle
-    def toggle_est_axes(is_checked):
-      OPT.show_est_axes = is_checked
-      main_window.est_axes.toggle_visibility(OPT.show_est_axes, OPT.show_axes_labels)
-      main_window.update_frame()
-      save_persistent_setting('show_est_axes')
-
-    main_window.est_axes_btn = QPushButton(
-      'Est. Axes',
-      checkable=True,
-      checked=OPT.show_est_axes
-    )
-    main_window.est_axes_btn.toggled.connect(toggle_est_axes)
-
   
   top_layout = QHBoxLayout()
+  top_layout.addWidget(main_window.origin_btn, 1)
   top_layout.addWidget(QLabel('Camera:'), 1)
   top_layout.addWidget(main_window.cam_combo, 2)
   top_layout.addWidget(QLabel('Background:'), 1)
