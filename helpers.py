@@ -357,7 +357,7 @@ class Body:
         # ambient_value = f*(ambient_lighting[1]-ambient_lighting[0]) + ambient_lighting[0]
         # logarithmic:
         # log scale factor
-        sf = 0.15
+        sf = 0.3
         ambient_value = sf * np.log(( np.exp((b-a)/sf)-1 ) * f + 1) + a
 
         prop.ambient = np.clip(ambient_value, 0, 1)
@@ -380,7 +380,7 @@ class Earth:
       earth_mesh,
       texture=earth_texture,
       smooth_shading=True,
-      ambient=0.15
+      ambient=0.3
     )
     self.update_position(r, dist)
 

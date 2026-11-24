@@ -71,7 +71,7 @@ class OPT:
 
   # satellite ambient lighting range
   lighting: bool = True
-  SAT_AMBIENT_LIGHT: tuple[float, float] = (0.15, 1)
+  SAT_AMBIENT_LIGHT: tuple[float, float] = (0.3, 1)
 
   autoplay: bool = False
   loop_playback: bool = True

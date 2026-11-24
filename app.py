@@ -234,15 +234,22 @@ class MainWindow(QMainWindow):
 
       # update surface forces
       if OPT.FORCES_AVAILABLE:
-        if OPT.show_aero_f:
-          self.body_mesh.update_forces(self.surface_forces[frame-1].a.f, dcm, self.body_mesh.aero_f_actors, OPT.AERO_FORCE_SCALE, OPT.FORCE_SCALE_MIN)
-        if OPT.show_srp_f:
-          self.body_mesh.update_forces(self.surface_forces[frame-1].s.f, dcm, self.body_mesh.srp_f_actors, OPT.SRP_FORCE_SCALE, OPT.FORCE_SCALE_MIN)
+        surf_forces = self.surface_forces[frame-1]
 
-      # update SRP panel based lighting
-      if OPT.FORCES_AVAILABLE and OPT.lighting:
-        normed_srp = np.linalg.norm(self.surface_forces[frame-1].s.f, axis=1) / OPT.SRP_F_MAX
-        self.body_mesh.update_lighting(normed_srp, OPT.SAT_AMBIENT_LIGHT)
+        if OPT.show_aero_f:
+          self.body_mesh.update_forces(surf_forces.a.f, dcm, self.body_mesh.aero_f_actors, OPT.AERO_FORCE_SCALE, OPT.FORCE_SCALE_MIN)
+        if OPT.show_srp_f:
+          self.body_mesh.update_forces(surf_forces.s.f, dcm, self.body_mesh.srp_f_actors, OPT.SRP_FORCE_SCALE, OPT.FORCE_SCALE_MIN)
+
+        # update SRP panel based lighting
+        if OPT.lighting:
+          normed_srp = np.linalg.norm(surf_forces.s.f, axis=1) / OPT.SRP_F_MAX
+          # area normed
+          # surface areas
+          for i, surf in enumerate(self.geometry_data.surfaces):
+            normed_srp[i] /= surf.area
+
+          self.body_mesh.update_lighting(normed_srp, OPT.SAT_AMBIENT_LIGHT)
 
     # update estimated body attitude
     if OPT.EST_AVAILABLE:
