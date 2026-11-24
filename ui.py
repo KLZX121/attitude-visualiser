@@ -278,104 +278,136 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
 
 
   # satellite body toggle
-  def toggle_body_mesh(is_checked):
-    OPT.show_body_mesh = is_checked
-    main_window.body_mesh.toggle_visibility(OPT)
-
-    main_window.norm_btn.setEnabled(OPT.show_body_mesh)
-    main_window.edge_btn.setEnabled(OPT.show_body_mesh)
-    main_window.transparency_btn.setEnabled(OPT.show_body_mesh)
-    main_window.lighting_btn.setEnabled(OPT.show_body_mesh)
-    main_window.forces_combo.setEnabled(OPT.show_body_mesh)
-
-    main_window.update_frame()
-    save_persistent_setting('show_body_mesh')
-
-  main_window.body_mesh_btn = QPushButton(
-    'Satellite',
-    checkable=True
-  )
-  main_window.body_mesh_btn.toggled.connect(toggle_body_mesh)
-
-  # satellite normals toggle
-  def toggle_norms(is_checked):
-    OPT.show_normals = is_checked
-
-    if hasattr(main_window, 'body_mesh'):
+  if OPT.GEOMETRY_AVAILABLE:
+    def toggle_body_mesh(is_checked):
+      OPT.show_body_mesh = is_checked
       main_window.body_mesh.toggle_visibility(OPT)
 
-    main_window.update_frame()
-    save_persistent_setting('show_normals')
+      main_window.norm_btn.setEnabled(OPT.show_body_mesh)
+      main_window.panels_btn.setEnabled(OPT.show_body_mesh)
+      main_window.transparency_btn.setEnabled(OPT.show_body_mesh)
+      if OPT.FORCES_AVAILABLE:
+        main_window.lighting_btn.setEnabled(OPT.show_body_mesh)
+        main_window.forces_combo.setEnabled(OPT.show_body_mesh)
 
-  main_window.norm_btn = QPushButton(
-    'Normals',
-    checkable=True,
-    enabled=OPT.show_body_mesh
-  )
-  main_window.norm_btn.toggled.connect(toggle_norms)
+      main_window.update_frame()
+      save_persistent_setting('show_body_mesh')
 
-  # satellite mesh edges
-  def toggle_edges(is_checked):
-    OPT.show_edges = is_checked
+    main_window.body_mesh_btn = QPushButton(
+      'Satellite',
+      checkable=True
+    )
+    main_window.body_mesh_btn.toggled.connect(toggle_body_mesh)
 
-    if hasattr(main_window, 'body_mesh'):
+    # satellite normals toggle
+    def toggle_norms(is_checked):
+      OPT.show_normals = is_checked
+
+      if hasattr(main_window, 'body_mesh'):
+        main_window.body_mesh.toggle_visibility(OPT)
+
+      main_window.update_frame()
+      save_persistent_setting('show_normals')
+
+    main_window.norm_btn = QPushButton(
+      'Normals',
+      checkable=True,
+      enabled=OPT.show_body_mesh
+    )
+    main_window.norm_btn.toggled.connect(toggle_norms)
+    main_window.norm_btn.setChecked(OPT.show_normals)
+
+    # satellite mesh panel edges
+    def toggle_panels(is_checked):
+      OPT.show_panels = is_checked
+
+      if hasattr(main_window, 'body_mesh'):
+        main_window.body_mesh.toggle_visibility(OPT)
+
+      main_window.update_frame()
+      save_persistent_setting('show_panels')
+    main_window.panels_btn = QPushButton(
+      'Panels',
+      checkable=True,
+      enabled=OPT.show_body_mesh
+    )
+    main_window.panels_btn.toggled.connect(toggle_panels)
+    main_window.panels_btn.setChecked(OPT.show_panels)
+
+    # transparency
+    def toggle_transparency(is_checked):
+      OPT.transparent = is_checked
+
+      if hasattr(main_window, 'body_mesh'):
+        main_window.body_mesh.toggle_visibility(OPT)
+
+      main_window.update_frame()
+      save_persistent_setting('transparent')
+    main_window.transparency_btn = QPushButton(
+      'Transparency',
+      checkable=True,
+      enabled=OPT.show_body_mesh
+    )
+    main_window.transparency_btn.toggled.connect(toggle_transparency)
+    main_window.transparency_btn.setChecked(OPT.transparent)
+
+    # satellite outline
+    def switch_outlines(label):
+      OPT.outlines_col = label
+
       main_window.body_mesh.toggle_visibility(OPT)
 
-    main_window.update_frame()
-    save_persistent_setting('show_edges')
-  main_window.edge_btn = QPushButton(
-    'Edges',
-    checkable=True,
-    enabled=OPT.show_body_mesh
-  )
-  main_window.edge_btn.toggled.connect(toggle_edges)
+      main_window.update_frame()
+      save_persistent_setting('outlines_col')
+    main_window.outlines_combo = QComboBox()
+    main_window.outlines_combo.addItems(OPT.OUTLINE_COLS)
+    main_window.outlines_combo.currentTextChanged.connect(switch_outlines)
+    main_window.outlines_combo.setCurrentText(OPT.outlines_col)
+    
+    if OPT.FORCES_AVAILABLE:
+      # lighting
+      def toggle_lighting(is_checked):
+        OPT.lighting = is_checked
 
-  # transparency
-  def toggle_transparency(is_checked):
-    OPT.transparent = is_checked
+        if hasattr(main_window, 'body_mesh'):
+          main_window.body_mesh.toggle_visibility(OPT)
 
-    if hasattr(main_window, 'body_mesh'):
-      main_window.body_mesh.toggle_visibility(OPT)
+        main_window.update_frame()
+        save_persistent_setting('lighting')
+      main_window.lighting_btn = QPushButton(
+        'Lighting',
+        checkable=True,
+        enabled=OPT.show_body_mesh
+      )
+      main_window.lighting_btn.toggled.connect(toggle_lighting)
+      main_window.lighting_btn.setChecked(OPT.lighting)
 
-    main_window.update_frame()
-    save_persistent_setting('transparent')
-  main_window.transparency_btn = QPushButton(
-    'Transparency',
-    checkable=True,
-    enabled=OPT.show_body_mesh
-  )
-  main_window.transparency_btn.toggled.connect(toggle_transparency)
+      # satellite forces combo box
+      def change_forces(option):
+        OPT.show_aero_f = any(sub in option for sub in ['Aero', 'All'])
+        OPT.show_srp_f = any(sub in option for sub in ['SRP', 'All'])
 
-  # lighting
-  def toggle_lighting(is_checked):
-    OPT.lighting = is_checked
+        main_window.body_mesh.toggle_visibility(OPT)
 
-    if hasattr(main_window, 'body_mesh'):
-      main_window.body_mesh.toggle_visibility(OPT)
+        main_window.update_frame()
+        save_persistent_setting('show_aero_f')
+        save_persistent_setting('show_srp_f')
 
-    main_window.update_frame()
-    save_persistent_setting('lighting')
-  main_window.lighting_btn = QPushButton(
-    'Lighting',
-    checkable=True,
-    enabled=OPT.show_body_mesh
-  )
-  main_window.lighting_btn.toggled.connect(toggle_lighting)
+      main_window.forces_combo = QComboBox(enabled=OPT.show_body_mesh)
+      main_window.forces_combo.addItems(['None', 'All', 'Aero', 'SRP'])
+      main_window.forces_combo.currentTextChanged.connect(change_forces)
+      if OPT.show_srp_f and OPT.show_aero_f:
+        current_force = 'All'
+      elif OPT.show_aero_f:
+        current_force = 'Aero'
+      elif OPT.show_srp_f:
+        current_force = 'SRP'
+      else:
+        current_force = 'None'
+      main_window.forces_combo.setCurrentText(current_force)
 
-  # satellite forces combo box
-  def change_forces(option):
-    OPT.show_aero_f = any(sub in option for sub in ['Aero', 'All'])
-    OPT.show_srp_f = any(sub in option for sub in ['SRP', 'All'])
-
-    main_window.body_mesh.toggle_visibility(OPT)
-
-    main_window.update_frame()
-    save_persistent_setting('show_aero_f')
-    save_persistent_setting('show_srp_f')
-
-  main_window.forces_combo = QComboBox()
-  main_window.forces_combo.addItems(['None', 'All', 'Aero', 'SRP'])
-  main_window.forces_combo.currentTextChanged.connect(change_forces)
+    main_window.body_mesh_btn.setChecked(OPT.show_body_mesh)
+  
 
   # render button
   def open_render_dialog():
@@ -413,54 +445,35 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
   main_window.ss_timer.timeout.connect(lambda: main_window.ss_btn.setText('Screenshot'))
 
 
-  # estimated attitude
-  def toggle_est_body(is_checked):
-    OPT.show_est_body = is_checked
-    main_window.est_body.toggle_visibility(OPT)
+  if OPT.EST_AVAILABLE:
+    # estimated attitude
+    def toggle_est_body(is_checked):
+      OPT.show_est_body = is_checked
+      main_window.est_body.toggle_visibility(OPT)
 
-    main_window.update_frame()
-    save_persistent_setting('show_est_body')
+      main_window.update_frame()
+      save_persistent_setting('show_est_body')
 
-  main_window.est_att_btn = QPushButton(
-    'Est. Body',
-    checkable=True,
-    checked=OPT.show_est_body
-  )
-  main_window.est_att_btn.toggled.connect(toggle_est_body)
+    main_window.est_att_btn = QPushButton(
+      'Est. Body',
+      checkable=True,
+      checked=OPT.show_est_body
+    )
+    main_window.est_att_btn.toggled.connect(toggle_est_body)
 
-  # est axes toggle
-  def toggle_est_axes(is_checked):
-    OPT.show_est_axes = is_checked
-    main_window.est_axes.toggle_visibility(OPT.show_est_axes, OPT.show_axes_labels)
-    main_window.update_frame()
-    save_persistent_setting('show_est_axes')
+    # est axes toggle
+    def toggle_est_axes(is_checked):
+      OPT.show_est_axes = is_checked
+      main_window.est_axes.toggle_visibility(OPT.show_est_axes, OPT.show_axes_labels)
+      main_window.update_frame()
+      save_persistent_setting('show_est_axes')
 
-  main_window.est_axes_btn = QPushButton(
-    'Est. Axes',
-    checkable=True,
-    checked=OPT.show_est_axes
-  )
-  main_window.est_axes_btn.toggled.connect(toggle_est_axes)
-
-
-  if OPT.GEOMETRY_AVAILABLE:
-    main_window.body_mesh_btn.setChecked(OPT.show_body_mesh)
-    main_window.norm_btn.setChecked(OPT.show_normals)
-    main_window.edge_btn.setChecked(OPT.show_edges)
-    main_window.transparency_btn.setChecked(OPT.transparent)
-
-    if OPT.FORCES_AVAILABLE:
-      if OPT.show_srp_f and OPT.show_aero_f:
-        current_force = 'All'
-      elif OPT.show_aero_f:
-        current_force = 'Aero'
-      elif OPT.show_srp_f:
-        current_force = 'SRP'
-      else:
-        current_force = 'None'
-      main_window.forces_combo.setCurrentText(current_force)
-
-      main_window.lighting_btn.setChecked(OPT.lighting)
+    main_window.est_axes_btn = QPushButton(
+      'Est. Axes',
+      checkable=True,
+      checked=OPT.show_est_axes
+    )
+    main_window.est_axes_btn.toggled.connect(toggle_est_axes)
 
   
   top_layout = QHBoxLayout()
@@ -498,12 +511,13 @@ def setup_controls(main_window, central_layout, plotter_widget, OPT, persistent_
   if OPT.GEOMETRY_AVAILABLE:
     add_divider(left_layout)
     left_layout.addWidget(main_window.body_mesh_btn)
-    left_layout.addWidget(main_window.norm_btn)
-    left_layout.addWidget(main_window.edge_btn)
-    left_layout.addWidget(main_window.transparency_btn)
+    left_layout.addWidget(main_window.outlines_combo)
     if OPT.FORCES_AVAILABLE:
-      left_layout.addWidget(main_window.lighting_btn)
       left_layout.addWidget(main_window.forces_combo)
+      left_layout.addWidget(main_window.lighting_btn)
+    left_layout.addWidget(main_window.norm_btn)
+    left_layout.addWidget(main_window.panels_btn)
+    left_layout.addWidget(main_window.transparency_btn)
   if OPT.EST_AVAILABLE:
     add_divider(left_layout)
     if OPT.GEOMETRY_AVAILABLE:

@@ -19,7 +19,7 @@ class OPT:
     'show_axes_labels',
     'show_body_mesh',
     'show_normals',
-    'show_edges',
+    'show_panels',
     'transparent',
     'lighting',
     'show_aero_f',
@@ -28,7 +28,8 @@ class OPT:
     'show_sun',
     'show_sun_vector',
     'show_est_body',
-    'show_est_axes'
+    'show_est_axes',
+    'outlines_col'
   ]
   
   WINDOW_SIZE: tuple[int, int] = (1000, 800)
@@ -108,7 +109,9 @@ class OPT:
 
   show_body_mesh: bool = True
   show_normals: bool = False
-  show_edges: bool = False
+  OUTLINE_COLS = ['None', 'Black', 'White', 'Grey', 'Red', 'Green', 'Blue']
+  outlines_col: str = 'Black'
+  show_panels: bool = False
   transparent: bool = False
 
   show_aero_f: bool = False

@@ -230,7 +230,7 @@ class MainWindow(QMainWindow):
 
     # update satellite body orientation
     if OPT.GEOMETRY_AVAILABLE and OPT.show_body_mesh:
-      self.body_mesh.rotate_mesh(dcm, OPT.show_normals)
+      self.body_mesh.rotate_mesh(dcm, OPT.show_normals, OPT.outlines_col != False)
 
       # update surface forces
       if OPT.FORCES_AVAILABLE:
@@ -257,7 +257,7 @@ class MainWindow(QMainWindow):
       if OPT.show_est_axes:
         self.est_axes.rotate_mesh(dcm_est, show_labels=OPT.show_axes_labels)
       if OPT.GEOMETRY_AVAILABLE and OPT.show_est_body:
-        self.est_body.rotate_mesh(dcm_est, show_normals=False)
+        self.est_body.rotate_mesh(dcm_est, show_normals=False, show_outlines=False)
 
     if OPT.SUN_AVAILABLE:
       r_s = self.r_sun_list[frame-1]
@@ -415,7 +415,7 @@ class MainWindow(QMainWindow):
     QApplication.processEvents()
 
     end_time = time.perf_counter() - start_time
-    output(f'\nRendering complete: {end_time}s elapsed')
+    output(f'\nRendering complete: {end_time:.3f}s elapsed')
     output(f'Render output at: {output_path}')
 
     self.setup_window(read_data=False, setup_ui=False)

@@ -243,13 +243,15 @@ class Body:
     if add_force_actors:
       force_mesh = pv.Arrow(start=(-1, 0, 0), direction=(1, 0, 0), tip_resolution=10, shaft_resolution=10)
 
+    quads = []
     for surface_obj in self.geometry.surfaces:
       # convert vertex data to PolyData with faces
-      vertices = pv.PolyData(surface_obj.vertices, np.array([4, 0, 1, 2, 3]))
+      quad = pv.PolyData(surface_obj.vertices, np.array([4, 0, 1, 2, 3]))
+      quads.append(quad)
 
       if not is_est_body:
         surf_actor = plotter.add_mesh(
-          vertices,
+          quad,
           color=None,
           ambient=0.4,
           diffuse=0.8,
@@ -259,7 +261,7 @@ class Body:
         )
       else:
         surf_actor = plotter.add_mesh(
-          vertices,
+          quad,
           color='white',
           opacity=0.5,
           ambient=1,
@@ -294,6 +296,22 @@ class Body:
         srp_f_actor.scale = 0
         self.srp_f_actors.append(srp_f_actor)
 
+    # create satellite outline
+    if not is_est_body:
+      combined = pv.merge(quads).clean(tolerance=1e-6)
+      edges = combined.extract_feature_edges(
+        feature_angle=30,
+        boundary_edges=True,
+        feature_edges=True,
+        manifold_edges=False,
+        non_manifold_edges=False,
+      )
+      self.outline_actor = plotter.add_mesh(
+        edges, color='white', line_width=1, lighting=False, pickable=False
+      )
+      self.outline_actor.mapper.SetResolveCoincidentTopologyToPolygonOffset()
+      self.outline_actor.mapper.SetRelativeCoincidentTopologyLineOffsetParameters(-1, -1)
+
   def toggle_visibility(self, OPT):
     for actor in self.surf_actors:
       if self.is_est_body:
@@ -302,7 +320,7 @@ class Body:
       
       actor.visibility = OPT.show_body_mesh
       
-      actor.GetProperty().SetEdgeVisibility(OPT.show_edges)
+      actor.GetProperty().SetEdgeVisibility(OPT.show_panels)
       actor.GetProperty().SetOpacity(0.5 if OPT.transparent else 1)
       
       # toggle lighting
@@ -320,8 +338,14 @@ class Body:
     for actor in self.srp_f_actors:
       actor.visibility = OPT.show_srp_f if OPT.show_body_mesh else False
 
-  def rotate_mesh(self, dcm, show_normals):
-    actors = self.surf_actors + (self.norm_actors if show_normals else [])
+    if OPT.outlines_col == "None":
+      self.outline_actor.visibility = False
+    else:
+      self.outline_actor.visibility = True
+      self.outline_actor.prop.color = OPT.outlines_col
+
+  def rotate_mesh(self, dcm, show_normals, show_outlines):
+    actors = self.surf_actors + (self.norm_actors if show_normals else []) + ([self.outline_actor] if show_outlines else [])
 
     for actor in actors:
       actor.rotation_from(dcm.T)
