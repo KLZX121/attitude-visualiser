@@ -19,7 +19,7 @@ class MainWindow(QMainWindow):
   def __init__(self):
     super().__init__()
 
-    self.setWindowTitle('Attitude Visualiser v1.2')
+    self.setWindowTitle('Attitude Visualiser v1.3')
     self.resize(OPT.WINDOW_SIZE[0], OPT.WINDOW_SIZE[1])
 
     self.setup_window(read_data=False, setup_ui=True)
